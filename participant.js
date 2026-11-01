@@ -11,6 +11,7 @@
     const box = $('#error');
     box.textContent = err ? (err.message || String(err)) : '';
     show('error', !!err);
+    if (err) $('#error').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function demoData() {

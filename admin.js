@@ -8,6 +8,7 @@
     const box = $('#error');
     box.textContent = err ? (err.message || String(err)) : '';
     box.classList.toggle('hidden', !err);
+    if (err) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function personLink(p) {
@@ -317,7 +318,9 @@
   } else {
     $('#add-btn').onclick = add;
     $('#settings-btn').onclick = saveSettings;
-    $('#set-wishes').onchange = syncSettingsForm;
+    // As caixas de escolha guardam logo, para a lista mudar sem ter de carregar em Guardar.
+    $('#set-wishes').onchange = () => { syncSettingsForm(); saveSettings(); };
+    $('#set-houses').onchange = saveSettings;
     $('#import-btn').onclick = importList;
     load();
     setInterval(() => { if (document.visibilityState === 'visible' && !document.activeElement.matches('input, textarea')) load(); }, 30000);
