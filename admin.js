@@ -48,6 +48,10 @@
   async function load() {
     try {
       state = await rpc('admin_get', { p_admin_key: key });
+      // Valores por omissão, caso a base de dados ainda não tenha as opções novas.
+      state.use_houses = state.use_houses ?? true;
+      state.wishes_enabled = state.wishes_enabled ?? true;
+      state.draw_hours = state.draw_hours ?? 72;
       showError(null);
       render();
     } catch (e) { showError(e); }
