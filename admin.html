@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Amigo Secreto · Organizador</title>
-  <link rel="stylesheet" href="style.css?v=202611011934">
+  <link rel="stylesheet" href="style.css?v=202611011945">
 </head>
 <body>
 <main>
@@ -40,6 +40,7 @@
       <input id="set-budget" type="number" min="1">
       <label class="check"><input id="set-houses" type="checkbox"> Há casas: pessoas da mesma casa não se podem tirar umas às outras</label>
       <label class="check"><input id="set-wishes" type="checkbox"> Cada pessoa escolhe 3 desejos antes do sorteio</label>
+      <label class="check"><input id="set-photos" type="checkbox"> Fotografias: cada pessoa pode pôr uma foto, que aparece na animação</label>
       <p id="wishes-locked" class="quiet hidden">Os desejos só podem ser ligados ou desligados antes de começar.</p>
       <div id="hours-wrap">
         <label for="set-hours">Horas até ao sorteio automático (contadas a partir de "Começar")</label>
@@ -77,9 +78,10 @@
     <h2>Participantes <span id="count" class="quiet"></span></h2>
     <div id="list"></div>
   </section>
+  <input id="admin-photo-input" type="file" accept="image/*" class="hidden">
 </main>
-<script src="config.js?v=202611011934"></script>
-<script src="common.js?v=202611011934"></script>
-<script src="admin.js?v=202611011934"></script>
+<script src="config.js?v=202611011945"></script>
+<script src="common.js?v=202611011945"></script>
+<script src="admin.js?v=202611011945"></script>
 </body>
 </html>

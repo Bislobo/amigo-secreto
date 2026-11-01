@@ -74,7 +74,7 @@
     }
   }
 
-  async function play(stage, { me, others, receiver, useHouses = true }) {
+  async function play(stage, { me, others, receiver, useHouses = true, photos = false }) {
     skipping = false;
     // Limpa uma execução anterior.
     stage.querySelectorAll('.ball, .ball-half, .confetti').forEach((el) => el.remove());
@@ -116,7 +116,7 @@
     // 2. Saem as pessoas da mesma casa.
     const excluded = balls.filter((b) => b.person.excluded);
     stage.querySelector('#tray-wrap').classList.add('on');
-    const meChip = makeChip(tray, 'Tu, ' + me.name.split(' ')[0]);
+    const meChip = makeChip(tray, 'Tu, ' + me.name.split(' ')[0], photos && me.photo);
     await setCaption(stage, !useHouses
       ? 'Só tu não te podes calhar. Todos os outros estão em jogo!'
       : excluded.length
@@ -125,7 +125,10 @@
     meChip.classList.add('on');
     await sleep(600);
     for (const b of excluded) {
-      const chip = makeChip(tray, b.person.name);
+      const chip = makeChip(tray, b.person.name, photos && b.person.photo);
+      if (photos && b.person.photo) {
+        b.el.style.background = `center / cover no-repeat url("${b.person.photo}")`;
+      }
       const sr = stage.getBoundingClientRect();
       const dr = chip.querySelector('.dot').getBoundingClientRect();
       const tx = dr.left + dr.width / 2 - sr.left - b.x;
@@ -185,6 +188,9 @@
       return h;
     });
     stage.querySelector('#reveal-name').textContent = receiver.name;
+    const rphoto = stage.querySelector('#reveal-photo');
+    rphoto.classList.toggle('hidden', !(photos && receiver.photo));
+    if (photos && receiver.photo) rphoto.style.backgroundImage = `url("${receiver.photo}")`;
     card.classList.remove('hidden');
     const cardAnim = anim(card, [
       { transform: 'scale(0.2)', opacity: 0 },
@@ -207,10 +213,15 @@
     }
   }
 
-  function makeChip(tray, label) {
+  function makeChip(tray, label, photo) {
     const chip = document.createElement('span');
     chip.className = 'chip';
     chip.innerHTML = '<span class="dot"></span><span class="label"></span>';
+    if (photo) {
+      const dot = chip.querySelector('.dot');
+      dot.classList.add('photo');
+      dot.style.backgroundImage = `url("${photo}")`;
+    }
     chip.querySelector('.label').textContent = label;
     tray.append(chip);
     return chip;

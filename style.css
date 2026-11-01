@@ -64,3 +64,10 @@ button:disabled { opacity: 0.5; cursor: default; }
 footer { text-align: center; margin-top: 40px; }
 label.check { display: flex; gap: 10px; align-items: flex-start; color: var(--ink); font-size: 0.95rem; margin: 14px 0 4px; }
 label.check input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--gold); }
+.avatar {
+  display: inline-grid; place-items: center; flex: none; border-radius: 50%;
+  background: #2a3b7a center / cover no-repeat; color: var(--silver); font-weight: 700;
+  border: 2px solid rgba(230, 195, 106, 0.6);
+}
+button.avatar-btn { padding: 0; background: none; border: 0; border-radius: 50%; }
+.photo-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }

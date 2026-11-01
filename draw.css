@@ -88,3 +88,7 @@
 .result-name { font-size: 2rem; font-weight: 800; color: var(--gold); margin: 4px 0 6px; }
 .budget { margin-top: 14px; font-size: 1.05rem; }
 @media (prefers-reduced-motion: reduce) { .stage::before { animation: none; } }
+.reveal-photo { display: block; width: 110px; height: 110px; margin: 10px auto 2px; border-radius: 50%; background: center / cover no-repeat; border: 3px solid var(--gold); box-shadow: 0 4px 18px rgba(0,0,0,.25); }
+.chip .dot.photo { background-size: cover; background-position: center; }
+.chip .dot.photo::after { content: "✕"; inset: auto -4px -4px auto; width: 14px; height: 14px; border-radius: 50%; background: #fff; font-size: 9px; }
+.result-photo { margin: 6px auto 0; }

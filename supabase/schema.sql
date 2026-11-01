@@ -38,7 +38,9 @@ create index if not exists participants_event_idx on public.participants(event_i
 alter table public.events add column if not exists use_houses     boolean not null default true; -- false: todos podem calhar a todos
 alter table public.events add column if not exists wishes_enabled boolean not null default true; -- false: sem desejos, sorteio logo ao começar
 alter table public.events add column if not exists draw_hours     integer not null default 72;   -- horas até ao sorteio automático
+alter table public.events add column if not exists photos_enabled boolean not null default false; -- true: cada pessoa pode ter foto
 alter table public.participants alter column house set default '';
+alter table public.participants add column if not exists photo text; -- JPEG quadrado em data URL, já convertido no browser
 
 alter table public.events       enable row level security;
 alter table public.participants enable row level security;
@@ -199,6 +201,7 @@ begin
     'use_houses', v_event.use_houses,
     'wishes_enabled', v_event.wishes_enabled,
     'draw_hours', v_event.draw_hours,
+    'photos_enabled', v_event.photos_enabled,
     'status', v_event.status,
     'deadline', v_event.deadline,
     'drawn_at', v_event.drawn_at,
@@ -206,7 +209,8 @@ begin
     'participants', coalesce((
       select json_agg(json_build_object(
         'id', id, 'name', name, 'phone', phone, 'house', house,
-        'token', token, 'has_wishes', wishes_at is not null
+        'token', token, 'has_wishes', wishes_at is not null,
+        'photo', case when v_event.photos_enabled then photo end
       ) order by house, created_at)
       from participants where event_id = v_event.id), '[]'::json)
   );
@@ -253,9 +257,11 @@ end $$;
 -- Muda as definições. As opções de casas, desejos e budget só mudam antes do sorteio;
 -- os desejos só podem ser ligados/desligados antes de começar.
 drop function if exists public.admin_update_event(uuid, text, integer);
+drop function if exists public.admin_update_event(uuid, text, integer, boolean, boolean, integer);
 create or replace function public.admin_update_event(
   p_admin_key uuid, p_name text, p_budget integer,
-  p_use_houses boolean default null, p_wishes_enabled boolean default null, p_draw_hours integer default null)
+  p_use_houses boolean default null, p_wishes_enabled boolean default null, p_draw_hours integer default null,
+  p_photos_enabled boolean default null)
 returns void language plpgsql security definer set search_path = public as $$
 declare
   v_event events;
@@ -285,6 +291,7 @@ begin
          use_houses = coalesce(p_use_houses, use_houses),
          wishes_enabled = coalesce(p_wishes_enabled, wishes_enabled),
          draw_hours = v_hours,
+         photos_enabled = coalesce(p_photos_enabled, photos_enabled),
          deadline = case when invites_sent_at is not null then invites_sent_at + make_interval(hours => v_hours) else deadline end
    where id = v_event.id;
   perform _maybe_draw(v_event.id);
@@ -353,17 +360,21 @@ begin
   return json_build_object(
     'event', json_build_object('name', v_event.name, 'budget', v_event.budget,
                                'status', v_event.status, 'deadline', v_event.deadline,
-                               'use_houses', v_event.use_houses, 'wishes_enabled', v_event.wishes_enabled),
+                               'use_houses', v_event.use_houses, 'wishes_enabled', v_event.wishes_enabled,
+                               'photos_enabled', v_event.photos_enabled),
     'me', json_build_object('name', v_me.name, 'phone', v_me.phone, 'house', v_me.house,
+                            'photo', case when v_event.photos_enabled then v_me.photo end,
                             'wishes', json_build_array(v_me.wish1, v_me.wish2, v_me.wish3),
                             'has_wishes', v_me.wishes_at is not null),
     'receiver', case when v_rec.id is null then null else json_build_object(
                   'name', v_rec.name,
+                  'photo', case when v_event.photos_enabled then v_rec.photo end,
                   'wishes', json_build_array(v_rec.wish1, v_rec.wish2, v_rec.wish3),
                   'has_wishes', v_rec.wishes_at is not null) end,
     -- Para a animação: os outros nomes e quem é da mesma casa (excluído).
     'others', case when v_event.status = 'drawn' then coalesce((
                 select json_agg(json_build_object('name', name,
+                                  'photo', case when v_event.photos_enabled then photo end,
                                   'excluded', _group_of(v_event.use_houses, house, id) = _group_of(v_event.use_houses, v_me.house, v_me.id))
                                 order by random())
                 from participants where event_id = v_me.event_id and id <> v_me.id), '[]'::json)
@@ -398,6 +409,41 @@ begin
   perform _maybe_draw(v_me.event_id);
 end $$;
 
+-- Fotos: chegam já convertidas pelo browser (JPEG quadrado pequeno).
+create or replace function public._check_photo(p_photo text)
+returns void language plpgsql immutable as $$
+begin
+  if p_photo is not null and (p_photo not like 'data:image/jpeg;base64,%' or length(p_photo) > 200000) then
+    raise exception 'Fotografia inválida ou demasiado grande.';
+  end if;
+end $$;
+
+create or replace function public.set_photo(p_token uuid, p_photo text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_me participants;
+begin
+  select * into v_me from participants where token = p_token;
+  if not found then
+    raise exception 'Link inválido.';
+  end if;
+  if not (select photos_enabled from events where id = v_me.event_id) then
+    raise exception 'Este amigo secreto não tem fotografias.';
+  end if;
+  perform _check_photo(p_photo);
+  update participants set photo = p_photo where id = v_me.id;
+end $$;
+
+create or replace function public.admin_set_photo(p_admin_key uuid, p_id uuid, p_photo text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_event events;
+begin
+  v_event := _event_by_key(p_admin_key);
+  perform _check_photo(p_photo);
+  update participants set photo = p_photo where id = p_id and event_id = v_event.id;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Permissões: a chave pública só pode chamar as funções acima sem "_".
 -- ---------------------------------------------------------------------------
@@ -407,7 +453,9 @@ grant execute on function public.create_event(text, integer)                    
 grant execute on function public.admin_get(uuid)                                     to anon, authenticated;
 grant execute on function public.admin_save_participant(uuid, uuid, text, text, text) to anon, authenticated;
 grant execute on function public.admin_remove_participant(uuid, uuid)                to anon, authenticated;
-grant execute on function public.admin_update_event(uuid, text, integer, boolean, boolean, integer) to anon, authenticated;
+grant execute on function public.admin_update_event(uuid, text, integer, boolean, boolean, integer, boolean) to anon, authenticated;
+grant execute on function public.set_photo(uuid, text)                                to anon, authenticated;
+grant execute on function public.admin_set_photo(uuid, uuid, text)                     to anon, authenticated;
 grant execute on function public.admin_start(uuid)                                   to anon, authenticated;
 grant execute on function public.admin_draw_now(uuid)                                to anon, authenticated;
 grant execute on function public.get_me(uuid)                                        to anon, authenticated;

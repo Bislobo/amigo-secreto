@@ -1,5 +1,5 @@
 (function () {
-  const { rpc, waLink, formatDate, esc, $ } = window.Amigo;
+  const { rpc, waLink, formatDate, esc, $, photoFromFile, avatar } = window.Amigo;
   const params = new URLSearchParams(location.search);
   const token = params.get('t');
   const demo = params.get('demo');
@@ -21,6 +21,7 @@
     return {
       event: { name: 'Amigo Secreto de Natal 2026 (demonstração)', budget: 60,
         use_houses: params.get('casas') !== '0', wishes_enabled: params.get('desejos') !== '0',
+        photos_enabled: params.get('fotos') === '1',
         status: demo === 'form' ? 'open' : 'drawn', deadline: new Date(Date.now() + 72 * 3600e3).toISOString() },
       me: { name: 'Miguel', phone: '', house: 'Casa 2', wishes: [null, null, null], has_wishes: false },
       receiver: { name: 'Sofia', has_wishes: true,
@@ -42,6 +43,14 @@
   function renderResult() {
     const r = data.receiver;
     $('#result-name').textContent = r.name;
+    const rp = $('#result-photo');
+    rp.innerHTML = '';
+    if (data.event.photos_enabled && r.photo) {
+      const a = avatar(r.photo, r.name, 120);
+      a.classList.add('result-photo');
+      a.style.display = 'block';
+      rp.append(a);
+    }
     const showWishes = data.event.wishes_enabled !== false;
     $('#result-wishes-title').classList.toggle('hidden', !showWishes);
     $('#result-wishes').classList.toggle('hidden', !showWishes);
@@ -63,13 +72,48 @@
     await window.Draw.play($('#stage'), {
       me: data.me, others: data.others, receiver: data.receiver,
       useHouses: data.event.use_houses !== false,
+      photos: !!data.event.photos_enabled,
     });
     renderResult();
     $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function renderPhoto() {
+    const on = data.event.photos_enabled && !(data.event.status === 'drawn' && data.receiver);
+    show('photo-section', !!on);
+    if (!on) return;
+    const prev = $('#photo-preview');
+    prev.innerHTML = '';
+    prev.append(avatar(data.me.photo, data.me.name, 96));
+    $('#photo-btn').textContent = data.me.photo ? 'Mudar fotografia' : 'Escolher fotografia';
+    show('photo-remove', !!data.me.photo);
+  }
+
+  async function uploadPhoto(file) {
+    const status = $('#photo-status');
+    try {
+      status.textContent = 'A preparar a fotografia…';
+      const photo = await photoFromFile(file);
+      if (!demo) await rpc('set_photo', { p_token: token, p_photo: photo });
+      data.me.photo = photo;
+      status.textContent = 'Fotografia guardada! ✨';
+      showError(null);
+    } catch (e) { status.textContent = ''; showError(e); }
+    renderPhoto();
+  }
+
+  async function removePhoto() {
+    try {
+      if (!demo) await rpc('set_photo', { p_token: token, p_photo: null });
+      data.me.photo = null;
+      $('#photo-status').textContent = 'Fotografia removida.';
+    } catch (e) { showError(e); }
+    renderPhoto();
+  }
+
   function render() {
     show('loading', false);
+    renderPhoto();
     $('#event-name').textContent = data.event.name;
     const first = data.me.name.split(' ')[0];
     if (data.event.status === 'drawn' && data.receiver) {
@@ -110,6 +154,9 @@
   }
 
   $('#save').onclick = save;
+  $('#photo-btn').onclick = () => $('#photo-input').click();
+  $('#photo-input').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) uploadPhoto(f); };
+  $('#photo-remove').onclick = removePhoto;
   $('#start-draw').onclick = playDraw;
   $('#replay').onclick = playDraw;
   $('#skip').onclick = () => window.Draw.skip();

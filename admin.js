@@ -1,5 +1,5 @@
 (function () {
-  const { rpc, waLink, formatDate, esc, $ } = window.Amigo;
+  const { rpc, waLink, formatDate, esc, $, photoFromFile, avatar } = window.Amigo;
   const params = new URLSearchParams(location.search);
   const key = params.get('k');
   let state = null;
@@ -53,6 +53,7 @@
       state.use_houses = state.use_houses ?? true;
       state.wishes_enabled = state.wishes_enabled ?? true;
       state.draw_hours = state.draw_hours ?? 72;
+      state.photos_enabled = state.photos_enabled ?? false;
       showError(null);
       render();
     } catch (e) { showError(e); }
@@ -73,6 +74,7 @@
     $('#set-houses').checked = state.use_houses;
     $('#set-houses').disabled = state.status === 'drawn';
     $('#set-wishes').checked = state.wishes_enabled;
+    $('#set-photos').checked = state.photos_enabled;
     $('#set-wishes').disabled = state.status !== 'setup';
     $('#wishes-locked').classList.toggle('hidden', state.status === 'setup');
     if (document.activeElement.id !== 'set-hours') $('#set-hours').value = state.draw_hours;
@@ -146,10 +148,20 @@
     }
   }
 
+  let photoTarget = null;
+
   function renderPerson(p) {
     const row = document.createElement('div');
     row.className = 'person';
-    row.innerHTML = `<span class="name">${esc(p.name)}</span>`;
+    if (state.photos_enabled) {
+      const btn = document.createElement('button');
+      btn.className = 'avatar-btn';
+      btn.title = p.photo ? 'Mudar a fotografia' : 'Pôr fotografia';
+      btn.append(avatar(p.photo, p.name, 36));
+      btn.onclick = () => { photoTarget = p; $('#admin-photo-input').click(); };
+      row.append(btn);
+    }
+    row.insertAdjacentHTML('beforeend', `<span class="name">${esc(p.name)}</span>`);
 
     if (state.status !== 'drawn') {
       const phone = document.createElement('input');
@@ -254,6 +266,7 @@
         p_use_houses: $('#set-houses').checked,
         p_wishes_enabled: state.status === 'setup' ? $('#set-wishes').checked : null,
         p_draw_hours: parseInt($('#set-hours').value, 10) || state.draw_hours,
+        p_photos_enabled: $('#set-photos').checked,
       });
       await load();
       $('#settings-saved').classList.remove('hidden');
@@ -321,6 +334,17 @@
     // As caixas de escolha guardam logo, para a lista mudar sem ter de carregar em Guardar.
     $('#set-wishes').onchange = () => { syncSettingsForm(); saveSettings(); };
     $('#set-houses').onchange = saveSettings;
+    $('#set-photos').onchange = saveSettings;
+    $('#admin-photo-input').onchange = async (e) => {
+      const f = e.target.files[0];
+      e.target.value = '';
+      if (!f || !photoTarget) return;
+      try {
+        const photo = await photoFromFile(f);
+        await rpc('admin_set_photo', { p_admin_key: key, p_id: photoTarget.id, p_photo: photo });
+        await load();
+      } catch (err) { showError(err); }
+    };
     $('#import-btn').onclick = importList;
     load();
     setInterval(() => { if (document.visibilityState === 'visible' && !document.activeElement.matches('input, textarea')) load(); }, 30000);

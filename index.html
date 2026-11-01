@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Amigo Secreto</title>
-  <link rel="stylesheet" href="style.css?v=202611011934">
-  <link rel="stylesheet" href="draw.css?v=202611011934">
+  <link rel="stylesheet" href="style.css?v=202611011945">
+  <link rel="stylesheet" href="draw.css?v=202611011945">
 </head>
 <body>
 <main>
@@ -36,6 +36,20 @@
     </div>
   </section>
 
+  <section id="photo-section" class="card hidden">
+    <h2 style="margin-top:0">A tua fotografia</h2>
+    <p class="quiet">Aparece na animação a quem te calhar. Pode ser uma qualquer: a app corta-a em quadrado e reduz o tamanho.</p>
+    <div class="photo-row">
+      <span id="photo-preview"></span>
+      <div class="row">
+        <button id="photo-btn" class="secondary">Escolher fotografia</button>
+        <button id="photo-remove" class="danger small hidden">Remover</button>
+      </div>
+    </div>
+    <input id="photo-input" type="file" accept="image/*" class="hidden">
+    <p id="photo-status" class="quiet"></p>
+  </section>
+
   <section id="waiting" class="card hidden">
     <h2 id="waiting-hello" style="margin-top:0"></h2>
     <p>O sorteio ainda não foi feito. Volta a abrir este link mais tarde para veres quem te calhou.</p>
@@ -58,6 +72,7 @@
       </div>
       <div class="reveal-card hidden" id="reveal-card">
         <div class="reveal-kicker">O teu amigo secreto é</div>
+        <div class="reveal-photo hidden" id="reveal-photo"></div>
         <div class="reveal-name" id="reveal-name"></div>
       </div>
     </div>
@@ -67,6 +82,7 @@
   <section id="result" class="hidden">
     <div class="card result-card">
       <p class="quiet" style="margin:0">Vais oferecer um presente a</p>
+      <div id="result-photo"></div>
       <div class="result-name" id="result-name"></div>
       <h2 id="result-wishes-title">Os 3 desejos</h2>
       <ol class="wishes" id="result-wishes"></ol>
@@ -79,9 +95,9 @@
     <p class="quiet" style="text-align:center">É segredo! Não contes a ninguém. 🤫</p>
   </section>
 </main>
-<script src="config.js?v=202611011934"></script>
-<script src="common.js?v=202611011934"></script>
-<script src="draw.js?v=202611011934"></script>
-<script src="participant.js?v=202611011934"></script>
+<script src="config.js?v=202611011945"></script>
+<script src="common.js?v=202611011945"></script>
+<script src="draw.js?v=202611011945"></script>
+<script src="participant.js?v=202611011945"></script>
 </body>
 </html>
