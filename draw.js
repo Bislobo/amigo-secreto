@@ -105,7 +105,7 @@
     });
 
     // 1. As bolas caem no pote.
-    await setCaption(stage, `Estão no pote ${people.length} nomes da família.`);
+    await setCaption(stage, `Estão no pote ${people.length} nomes.`);
     await Promise.all(balls.map((b, i) => anim(b.el, [
       { transform: `translateY(${-b.y - 40}px)`, opacity: 1 },
       { transform: 'translateY(8px)', opacity: 1, offset: 0.85 },

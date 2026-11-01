@@ -23,14 +23,14 @@
   }
 
   function inviteText(p) {
-    return `Olá ${p.name}! 🎁 Este ano há amigo secreto da família.\n\n` +
+    return `Olá ${p.name}! 🎁 ${state.name}\n\n` +
       `Abre o teu link pessoal e escolhe 3 coisas que gostavas de receber` +
       (state.deadline ? ` (até ${formatDate(state.deadline)})` : '') + `:\n${personLink(p)}\n\n` +
       `O budget máximo é de ${state.budget} €. Não partilhes este link, é só teu.`;
   }
 
   function drawnText(p) {
-    return `Olá ${p.name}! 🎉 O sorteio do amigo secreto já foi feito.\n\n` +
+    return `Olá ${p.name}! 🎉 O sorteio do «${state.name}» já foi feito.\n\n` +
       `Abre o teu link para veres quem te calhou:\n${personLink(p)}`;
   }
 
@@ -62,6 +62,9 @@
     $('#admin').classList.remove('hidden');
     $('#key-notice').classList.toggle('hidden', !params.get('novo'));
     $('#ev-title').textContent = state.name;
+    if (document.activeElement.id !== 'set-name') $('#set-name').value = state.name;
+    if (document.activeElement.id !== 'set-budget') $('#set-budget').value = state.budget;
+    $('#set-budget').disabled = state.status === 'drawn';
     const people = state.participants;
     const done = people.filter((p) => p.has_wishes).length;
     $('#count').textContent = `(${people.length})`;
@@ -95,8 +98,8 @@
       group.className = 'btn wa';
       group.target = '_blank';
       group.href = 'https://wa.me/?text=' + encodeURIComponent(
-        '🎉 O sorteio do amigo secreto já foi feito! Abram o vosso link pessoal (o mesmo do convite) para verem quem vos calhou.');
-      group.textContent = 'Avisar o grupo da família';
+        `🎉 O sorteio do «${state.name}» já foi feito! Abram o vosso link pessoal (o mesmo do convite) para verem quem vos calhou.`);
+      group.textContent = 'Avisar o grupo no WhatsApp';
       actions.append(group);
     }
 
@@ -214,6 +217,18 @@
     } catch (e) { showError(e); await load(); }
   }
 
+  async function saveSettings() {
+    try {
+      await rpc('admin_update_event', {
+        p_admin_key: key, p_name: $('#set-name').value,
+        p_budget: parseInt($('#set-budget').value, 10) || state.budget,
+      });
+      await load();
+      $('#settings-saved').classList.remove('hidden');
+      setTimeout(() => $('#settings-saved').classList.add('hidden'), 2500);
+    } catch (e) { showError(e); }
+  }
+
   async function add() {
     const name = $('#p-name').value.trim();
     const house = $('#p-house').value.trim();
@@ -266,6 +281,7 @@
     $('#create-btn').onclick = create;
   } else {
     $('#add-btn').onclick = add;
+    $('#settings-btn').onclick = saveSettings;
     $('#import-btn').onclick = importList;
     load();
     setInterval(() => { if (document.visibilityState === 'visible' && !document.activeElement.matches('input, textarea')) load(); }, 30000);

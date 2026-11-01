@@ -32,6 +32,15 @@
       <div id="ev-actions" class="row"></div>
     </div>
 
+    <details class="card" id="settings">
+      <summary>Definições do amigo secreto</summary>
+      <label for="set-name">Nome (aparece nas mensagens e na página de cada pessoa)</label>
+      <input id="set-name" maxlength="80">
+      <label for="set-budget">Budget máximo por presente (€)</label>
+      <input id="set-budget" type="number" min="1">
+      <p class="row"><button id="settings-btn">Guardar</button><span id="settings-saved" class="badge ok hidden">✓ guardado</span></p>
+    </details>
+
     <div id="problem" class="notice hidden"></div>
 
     <section id="setup-tools">

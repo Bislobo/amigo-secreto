@@ -229,6 +229,25 @@ begin
   delete from participants where id = p_id and event_id = v_event.id;
 end $$;
 
+-- Muda o nome e o budget. O budget só pode mudar antes do sorteio.
+create or replace function public.admin_update_event(p_admin_key uuid, p_name text, p_budget integer)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_event events;
+begin
+  v_event := _event_by_key(p_admin_key);
+  if coalesce(trim(p_name), '') = '' then
+    raise exception 'Dá um nome ao amigo secreto.';
+  end if;
+  if p_budget is null or p_budget < 1 then
+    raise exception 'O budget tem de ser pelo menos 1 €.';
+  end if;
+  if v_event.status = 'drawn' and p_budget <> v_event.budget then
+    raise exception 'O sorteio já foi feito, o budget já não pode mudar.';
+  end if;
+  update events set name = left(trim(p_name), 80), budget = p_budget where id = v_event.id;
+end $$;
+
 -- Abre o amigo secreto: começa a contagem de 72 horas.
 create or replace function public.admin_start(p_admin_key uuid)
 returns void language plpgsql security definer set search_path = public as $$
@@ -337,6 +356,7 @@ grant execute on function public.create_event(text, integer)                    
 grant execute on function public.admin_get(uuid)                                     to anon, authenticated;
 grant execute on function public.admin_save_participant(uuid, uuid, text, text, text) to anon, authenticated;
 grant execute on function public.admin_remove_participant(uuid, uuid)                to anon, authenticated;
+grant execute on function public.admin_update_event(uuid, text, integer)             to anon, authenticated;
 grant execute on function public.admin_start(uuid)                                   to anon, authenticated;
 grant execute on function public.admin_draw_now(uuid)                                to anon, authenticated;
 grant execute on function public.get_me(uuid)                                        to anon, authenticated;
