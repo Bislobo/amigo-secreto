@@ -40,7 +40,7 @@ No repositório: **Settings → Pages → Build and deployment → Source: Deplo
 ## Usar
 
 1. Abre `https://bislobo.github.io/amigo-secreto/admin.html` e cria o amigo secreto. **Guarda nos favoritos o endereço que aparece**: é a tua chave de organizador.
-2. Usa **Importar uma lista de casas** (uma casa por linha, ex.: `Casa 1: Marta, Pedro, João`) e preenche os números de WhatsApp.
+2. Usa **Importar uma lista de casas** (uma casa por linha, ex.: `Casa 1: Maria, José, Rita`) e preenche os números de WhatsApp.
 3. Carrega em **Começar**. A partir daí contam 72 horas.
 4. Carrega em **Enviar convite** em cada pessoa: o WhatsApp abre com a mensagem pronta, só tens de carregar em Enviar.
 5. Quando o sorteio estiver feito, carrega em **Avisar o grupo da família** (ou em **Avisar** em cada pessoa).

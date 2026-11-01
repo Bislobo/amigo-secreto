@@ -14,16 +14,16 @@
   }
 
   function demoData() {
-    const names = [['Marta', 0], ['Pedro', 0], ['João', 0], ['Alexandre', 1], ['Graça', 0], ['Quim', 0],
-      ['Anita', 0], ['Paulo A', 0], ['Ana', 0], ['Diogo', 0], ['Paulo F', 0], ['Luísa', 0], ['D. Amélia', 0],
-      ['Filipe', 0], ['Marina', 0], ['Teste', 0]];
+    const names = [['Maria', 0], ['José', 0], ['Rita', 0], ['Tiago', 1], ['Sofia', 0], ['Rui', 0],
+      ['Inês', 0], ['Nuno', 0], ['Carla', 0], ['Hugo', 0], ['Marta', 0], ['Luís', 0], ['Teresa', 0],
+      ['Bruno', 0], ['Joana', 0]];
     return {
       event: { name: 'Amigo Secreto de Natal 2026 (demonstração)', budget: 60,
         status: demo === 'form' ? 'open' : 'drawn', deadline: new Date(Date.now() + 72 * 3600e3).toISOString() },
-      me: { name: 'Ricardo', phone: '', house: 'Casa 2', wishes: [null, null, null], has_wishes: false },
-      receiver: { name: 'Graça', has_wishes: true,
+      me: { name: 'Miguel', phone: '', house: 'Casa 2', wishes: [null, null, null], has_wishes: false },
+      receiver: { name: 'Sofia', has_wishes: true,
         wishes: ['Um livro de receitas', 'Uma manta para o sofá', 'Bombons de chocolate preto'] },
-      others: names.slice(0, 15).map(([name, ex]) => ({ name, excluded: !!ex })),
+      others: names.map(([name, ex]) => ({ name, excluded: !!ex })),
     };
   }
 
