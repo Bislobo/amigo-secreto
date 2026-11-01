@@ -52,7 +52,7 @@ Na página do organizador, em **Definições do amigo secreto**, podes mudar:
 - **Nome** e **budget** máximo.
 - **Há casas**: desliga para que qualquer pessoa possa calhar a qualquer outra (só ninguém se tira a si próprio).
 - **Desejos**: desliga para não haver a fase dos 3 desejos. Nesse caso o sorteio é feito logo ao carregar em **Começar** e envias a cada pessoa o seu link. Só pode mudar antes de começar.
-- **Fotografias**: cada pessoa pode pôr uma foto na sua página (ou o organizador põe por ela, carregando no círculo ao lado do nome). A foto é cortada em quadrado e reduzida no próprio telemóvel, por isso todas ficam iguais e leves. Aparece na animação e no resultado.
+- **Fotografias**: o organizador põe a foto de cada pessoa, carregando no círculo ao lado do nome. A foto é cortada em quadrado e reduzida no próprio telemóvel, por isso todas ficam iguais e leves. Aparece na animação e no resultado.
 - **Horas até ao sorteio automático** (72 por omissão). Se mudares depois de começar, o prazo é recalculado a partir do momento em que carregaste em **Começar**.
 
 Depois de mudar o código da base de dados (`supabase/schema.sql`), basta voltar a corrê-lo no SQL Editor: os dados ficam.

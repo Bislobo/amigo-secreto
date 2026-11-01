@@ -409,7 +409,7 @@ begin
   perform _maybe_draw(v_me.event_id);
 end $$;
 
--- Fotos: chegam já convertidas pelo browser (JPEG quadrado pequeno).
+-- Fotos: carregadas só pelo organizador; chegam já convertidas pelo browser (JPEG quadrado pequeno).
 create or replace function public._check_photo(p_photo text)
 returns void language plpgsql immutable as $$
 begin
@@ -418,21 +418,7 @@ begin
   end if;
 end $$;
 
-create or replace function public.set_photo(p_token uuid, p_photo text)
-returns void language plpgsql security definer set search_path = public as $$
-declare
-  v_me participants;
-begin
-  select * into v_me from participants where token = p_token;
-  if not found then
-    raise exception 'Link inválido.';
-  end if;
-  if not (select photos_enabled from events where id = v_me.event_id) then
-    raise exception 'Este amigo secreto não tem fotografias.';
-  end if;
-  perform _check_photo(p_photo);
-  update participants set photo = p_photo where id = v_me.id;
-end $$;
+drop function if exists public.set_photo(uuid, text);
 
 create or replace function public.admin_set_photo(p_admin_key uuid, p_id uuid, p_photo text)
 returns void language plpgsql security definer set search_path = public as $$
@@ -454,7 +440,6 @@ grant execute on function public.admin_get(uuid)                                
 grant execute on function public.admin_save_participant(uuid, uuid, text, text, text) to anon, authenticated;
 grant execute on function public.admin_remove_participant(uuid, uuid)                to anon, authenticated;
 grant execute on function public.admin_update_event(uuid, text, integer, boolean, boolean, integer, boolean) to anon, authenticated;
-grant execute on function public.set_photo(uuid, text)                                to anon, authenticated;
 grant execute on function public.admin_set_photo(uuid, uuid, text)                     to anon, authenticated;
 grant execute on function public.admin_start(uuid)                                   to anon, authenticated;
 grant execute on function public.admin_draw_now(uuid)                                to anon, authenticated;

@@ -1,5 +1,5 @@
 (function () {
-  const { rpc, waLink, formatDate, esc, $, photoFromFile, avatar } = window.Amigo;
+  const { rpc, waLink, formatDate, esc, $, avatar } = window.Amigo;
   const params = new URLSearchParams(location.search);
   const token = params.get('t');
   const demo = params.get('demo');
@@ -78,42 +78,8 @@
     $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function renderPhoto() {
-    const on = data.event.photos_enabled && !(data.event.status === 'drawn' && data.receiver);
-    show('photo-section', !!on);
-    if (!on) return;
-    const prev = $('#photo-preview');
-    prev.innerHTML = '';
-    prev.append(avatar(data.me.photo, data.me.name, 96));
-    $('#photo-btn').textContent = data.me.photo ? 'Mudar fotografia' : 'Escolher fotografia';
-    show('photo-remove', !!data.me.photo);
-  }
-
-  async function uploadPhoto(file) {
-    const status = $('#photo-status');
-    try {
-      status.textContent = 'A preparar a fotografia…';
-      const photo = await photoFromFile(file);
-      if (!demo) await rpc('set_photo', { p_token: token, p_photo: photo });
-      data.me.photo = photo;
-      status.textContent = 'Fotografia guardada! ✨';
-      showError(null);
-    } catch (e) { status.textContent = ''; showError(e); }
-    renderPhoto();
-  }
-
-  async function removePhoto() {
-    try {
-      if (!demo) await rpc('set_photo', { p_token: token, p_photo: null });
-      data.me.photo = null;
-      $('#photo-status').textContent = 'Fotografia removida.';
-    } catch (e) { showError(e); }
-    renderPhoto();
-  }
-
   function render() {
     show('loading', false);
-    renderPhoto();
     $('#event-name').textContent = data.event.name;
     const first = data.me.name.split(' ')[0];
     if (data.event.status === 'drawn' && data.receiver) {
@@ -154,9 +120,6 @@
   }
 
   $('#save').onclick = save;
-  $('#photo-btn').onclick = () => $('#photo-input').click();
-  $('#photo-input').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) uploadPhoto(f); };
-  $('#photo-remove').onclick = removePhoto;
   $('#start-draw').onclick = playDraw;
   $('#replay').onclick = playDraw;
   $('#skip').onclick = () => window.Draw.skip();
