@@ -24,14 +24,14 @@
   }
 
   function inviteText(p) {
-    return `Olá ${p.name}! 🎁 ${state.name}\n\n` +
+    return `Olá ${p.name}! ✨ ${state.name}\n\n` +
       `Abre o teu link pessoal e escolhe 3 coisas que gostavas de receber` +
       (state.deadline ? ` (até ${formatDate(state.deadline)})` : '') + `:\n${personLink(p)}\n\n` +
       `O budget máximo é de ${state.budget} €. Não partilhes este link, é só teu.`;
   }
 
   function drawnText(p) {
-    return `Olá ${p.name}! 🎉 O sorteio do «${state.name}» já foi feito.\n\n` +
+    return `Olá ${p.name}! ✨ O sorteio do «${state.name}» já foi feito.\n\n` +
       `Abre o teu link para veres quem te calhou:\n${personLink(p)}`;
   }
 
@@ -117,7 +117,7 @@
       group.className = 'btn wa';
       group.target = '_blank';
       group.href = 'https://wa.me/?text=' + encodeURIComponent(
-        `🎉 O sorteio do «${state.name}» já foi feito! Abram o vosso link pessoal (o mesmo do convite) para verem quem vos calhou.`);
+        `✨ O sorteio do «${state.name}» já foi feito! Abram o vosso link pessoal (o mesmo do convite) para verem quem vos calhou.`);
       group.textContent = 'Avisar o grupo no WhatsApp';
       actions.append(group);
     }

@@ -34,7 +34,7 @@
     const wishes = r.has_wishes
       ? r.wishes.map((w, i) => `${i + 1}. ${w}`).join('\n')
       : '(não escolheu desejos)';
-    return `🎁 ${data.event.name}\n\nO meu amigo secreto é: *${r.name}*\n\n` +
+    return `✨ ${data.event.name}\n\nO meu amigo secreto é: *${r.name}*\n\n` +
       (data.event.wishes_enabled ? `Desejos:\n${wishes}\n\n` : '') +
       `Budget máximo: ${data.event.budget} €`;
   }
