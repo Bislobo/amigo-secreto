@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Amigo Secreto</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="draw.css">
+</head>
+<body>
+<main>
+  <h1>🎁 Amigo Secreto</h1>
+  <p id="event-name" class="quiet"></p>
+  <div id="error" class="notice hidden"></div>
+  <p id="loading" class="quiet">A carregar…</p>
+
+  <section id="no-token" class="card hidden">
+    <p>Esta é a app do amigo secreto da família. Para entrar, abre o link pessoal que recebeste pelo WhatsApp.</p>
+    <p class="quiet">Organizador? Vai à <a href="admin.html" style="color:var(--gold)">página do organizador</a>.</p>
+  </section>
+
+  <section id="wishes" class="hidden">
+    <h2 id="hello"></h2>
+    <p>Escreve as <b>3 coisas</b> que gostavas de receber. O budget máximo é de <b id="budget-1"></b>.</p>
+    <p id="deadline" class="quiet"></p>
+    <div class="card">
+      <label for="w1">1.ª coisa</label>
+      <input id="w1" maxlength="200">
+      <label for="w2">2.ª coisa</label>
+      <input id="w2" maxlength="200">
+      <label for="w3">3.ª coisa</label>
+      <input id="w3" maxlength="200">
+      <p class="row"><button id="save">Guardar os meus desejos</button></p>
+      <div id="saved" class="notice success hidden"></div>
+    </div>
+  </section>
+
+  <section id="ready" class="hidden">
+    <h2 id="ready-hello"></h2>
+    <p>O sorteio já foi feito! Carrega no botão para veres quem te calhou.</p>
+    <p><button id="start-draw">▶ Ver o sorteio</button></p>
+  </section>
+
+  <section id="draw" class="hidden">
+    <div id="stage" class="stage">
+      <div class="stage-title" id="stage-title"></div>
+      <div class="bowl" id="bowl"><div class="bowl-shine"></div></div>
+      <div class="caption" id="caption"></div>
+      <div class="tray" id="tray-wrap">
+        <div class="tray-label">Não te podem calhar</div>
+        <div class="tray-chips" id="tray"></div>
+      </div>
+      <div class="reveal-card hidden" id="reveal-card">
+        <div class="reveal-kicker">O teu amigo secreto é</div>
+        <div class="reveal-name" id="reveal-name"></div>
+      </div>
+    </div>
+    <p class="row" style="justify-content:center"><button id="skip" class="secondary small">Saltar animação</button></p>
+  </section>
+
+  <section id="result" class="hidden">
+    <div class="card result-card">
+      <p class="quiet" style="margin:0">Vais oferecer um presente a</p>
+      <div class="result-name" id="result-name"></div>
+      <h2>Os 3 desejos</h2>
+      <ol class="wishes" id="result-wishes"></ol>
+      <p class="budget">Budget máximo: <b id="budget-2"></b></p>
+    </div>
+    <p class="row" style="justify-content:center">
+      <a id="wa-save" class="btn wa" target="_blank">Guardar no meu WhatsApp</a>
+      <button id="replay" class="secondary">Ver outra vez</button>
+    </p>
+    <p class="quiet" style="text-align:center">É segredo! Não contes a ninguém. 🤫</p>
+  </section>
+</main>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="draw.js"></script>
+<script src="participant.js"></script>
+</body>
+</html>

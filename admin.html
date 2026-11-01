@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Amigo Secreto · Organizador</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>🎁 Amigo Secreto</h1>
+  <p class="quiet">Página do organizador</p>
+  <div id="error" class="notice hidden"></div>
+
+  <section id="create" class="card hidden">
+    <h2>Criar um amigo secreto</h2>
+    <label for="ev-name">Nome</label>
+    <input id="ev-name" value="Amigo Secreto de Natal 2026">
+    <label for="ev-budget">Budget máximo por presente (€)</label>
+    <input id="ev-budget" type="number" min="1" value="60">
+    <p><button id="create-btn">Criar</button></p>
+  </section>
+
+  <section id="admin" class="hidden">
+    <div id="key-notice" class="notice success hidden">
+      Guarda este endereço nos favoritos: é a tua chave de organizador e não há outra forma de voltar a esta página.
+    </div>
+    <div class="card">
+      <h2 id="ev-title" style="margin-top:0"></h2>
+      <p id="ev-status"></p>
+      <div id="ev-actions" class="row"></div>
+    </div>
+
+    <div id="problem" class="notice hidden"></div>
+
+    <section id="setup-tools">
+      <h2>Adicionar pessoas</h2>
+      <div class="card">
+        <label for="p-name">Nome</label>
+        <input id="p-name" placeholder="Ex.: Marta">
+        <label for="p-phone">WhatsApp</label>
+        <input id="p-phone" inputmode="tel" placeholder="Ex.: 912 345 678">
+        <label for="p-house">Casa</label>
+        <input id="p-house" list="houses" placeholder="Ex.: Casa 1">
+        <datalist id="houses"></datalist>
+        <p><button id="add-btn">Adicionar</button></p>
+      </div>
+      <details class="card">
+        <summary>Importar uma lista de casas de uma vez</summary>
+        <p class="quiet">Uma casa por linha, no formato <code>Casa 1: Marta, Pedro, João</code>. Depois preenches os números de WhatsApp na lista.</p>
+        <textarea id="import-text"></textarea>
+        <p><button id="import-btn" class="secondary">Importar</button></p>
+      </details>
+    </section>
+
+    <h2>Participantes <span id="count" class="quiet"></span></h2>
+    <div id="list"></div>
+  </section>
+</main>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
