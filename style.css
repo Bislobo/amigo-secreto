@@ -54,6 +54,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .person { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .person .name { font-weight: 600; min-width: 90px; }
 .person input { width: 150px; padding: 8px; font-size: 0.95rem; }
+.person input.house-input { width: 100px; }
 .badge { font-size: 0.8rem; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--quiet); }
 .badge.ok { color: var(--ok); border-color: rgba(95, 211, 154, 0.5); }
 .badge.sent { color: var(--gold); border-color: rgba(230, 195, 106, 0.5); }

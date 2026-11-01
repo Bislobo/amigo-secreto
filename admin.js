@@ -102,7 +102,7 @@
 
     const problem = $('#problem');
     problem.textContent = state.problem || '';
-    problem.classList.toggle('hidden', !state.problem || state.status !== 'setup');
+    problem.classList.toggle('hidden', !state.problem || state.status === 'drawn');
     $('#setup-tools').classList.toggle('hidden', state.status === 'drawn');
 
   }
@@ -136,6 +136,15 @@
       phone.inputMode = 'tel';
       phone.onchange = () => savePhone(p, phone.value);
       row.append(phone);
+
+      const house = document.createElement('input');
+      house.value = p.house;
+      house.placeholder = 'Casa';
+      house.title = 'Mudar de casa';
+      house.className = 'house-input';
+      house.setAttribute('list', 'houses');
+      house.onchange = () => saveHouse(p, house.value);
+      row.append(house);
     }
 
     const grow = document.createElement('span');
@@ -191,6 +200,18 @@
       showError(null);
       if (state.status === 'setup') renderHeader();
     } catch (e) { showError(e); }
+  }
+
+  // Mudar de casa mantém o link e os desejos da pessoa.
+  async function saveHouse(p, house) {
+    house = house.trim();
+    if (!house || house === p.house) return;
+    try {
+      await rpc('admin_save_participant', {
+        p_admin_key: key, p_id: p.id, p_name: p.name, p_phone: p.phone, p_house: house,
+      });
+      await load();
+    } catch (e) { showError(e); await load(); }
   }
 
   async function add() {
