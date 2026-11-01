@@ -65,6 +65,17 @@
     if (document.activeElement.id !== 'set-name') $('#set-name').value = state.name;
     if (document.activeElement.id !== 'set-budget') $('#set-budget').value = state.budget;
     $('#set-budget').disabled = state.status === 'drawn';
+    $('#set-houses').checked = state.use_houses;
+    $('#set-houses').disabled = state.status === 'drawn';
+    $('#set-wishes').checked = state.wishes_enabled;
+    $('#set-wishes').disabled = state.status !== 'setup';
+    $('#wishes-locked').classList.toggle('hidden', state.status === 'setup');
+    if (document.activeElement.id !== 'set-hours') $('#set-hours').value = state.draw_hours;
+    $('#set-hours').disabled = state.status === 'drawn';
+    syncSettingsForm();
+    $('#p-house-wrap').classList.toggle('hidden', !state.use_houses);
+    $('#import-help-houses').classList.toggle('hidden', !state.use_houses);
+    $('#import-help-plain').classList.toggle('hidden', state.use_houses);
     const people = state.participants;
     const done = people.filter((p) => p.has_wishes).length;
     $('#count').textContent = `(${people.length})`;
@@ -73,10 +84,12 @@
     const actions = $('#ev-actions');
     actions.innerHTML = '';
     if (state.status === 'setup') {
-      status.innerHTML = 'Ainda não começou. Adiciona as pessoas e as casas e depois carrega em <b>Começar</b>. ' +
-        'A partir daí contam 72 horas até ao sorteio.';
+      status.innerHTML = 'Ainda não começou. Adiciona as pessoas' + (state.use_houses ? ' e as casas' : '') +
+        ' e depois carrega em <b>Começar</b>. ' + (state.wishes_enabled
+          ? `A partir daí contam ${state.draw_hours} horas até ao sorteio.`
+          : 'Como não há desejos, o sorteio é feito logo.');
       const b = document.createElement('button');
-      b.textContent = 'Começar (inicia as 72 h)';
+      b.textContent = state.wishes_enabled ? `Começar (sorteio daqui a ${state.draw_hours} h)` : 'Começar e sortear já';
       b.disabled = !!state.problem || people.some((p) => !p.phone);
       b.onclick = start;
       actions.append(b);
@@ -92,7 +105,8 @@
       b.onclick = drawNow;
       actions.append(b);
     } else {
-      status.innerHTML = `✅ Sorteio feito a ${esc(formatDate(state.drawn_at))}. Avisa cada pessoa para abrir o seu link. ` +
+      status.innerHTML = `✅ Sorteio feito a ${esc(formatDate(state.drawn_at))}. ` +
+        (state.wishes_enabled ? 'Avisa cada pessoa para abrir o seu link. ' : 'Envia a cada pessoa o seu link. ') +
         'Esta página não mostra os pares.';
       const group = document.createElement('a');
       group.className = 'btn wa';
@@ -112,8 +126,8 @@
 
   function renderList() {
     const people = state.participants;
-    const houses = [...new Set(people.map((p) => p.house))];
-    $('#houses').innerHTML = houses.map((h) => `<option value="${esc(h)}">`).join('');
+    const houses = state.use_houses ? [...new Set(people.map((p) => p.house))] : [null];
+    $('#houses').innerHTML = houses.filter(Boolean).map((h) => `<option value="${esc(h)}">`).join('');
 
     const list = $('#list');
     list.innerHTML = '';
@@ -121,8 +135,8 @@
     for (const house of houses) {
       const div = document.createElement('div');
       div.className = 'house card';
-      div.innerHTML = `<h3>${esc(house)}</h3>`;
-      for (const p of people.filter((x) => x.house === house)) div.append(renderPerson(p));
+      div.innerHTML = house === null ? '' : `<h3>${esc(house || 'Sem casa')}</h3>`;
+      for (const p of people.filter((x) => house === null || x.house === house)) div.append(renderPerson(p));
       list.append(div);
     }
   }
@@ -140,6 +154,7 @@
       phone.onchange = () => savePhone(p, phone.value);
       row.append(phone);
 
+      if (state.use_houses) {
       const house = document.createElement('input');
       house.value = p.house;
       house.placeholder = 'Casa';
@@ -148,13 +163,14 @@
       house.setAttribute('list', 'houses');
       house.onchange = () => saveHouse(p, house.value);
       row.append(house);
+      }
     }
 
     const grow = document.createElement('span');
     grow.className = 'grow';
     row.append(grow);
 
-    if (state.status !== 'setup') {
+    if (state.status !== 'setup' && state.wishes_enabled) {
       row.insertAdjacentHTML('beforeend', p.has_wishes
         ? '<span class="badge ok">✓ desejos</span>'
         : '<span class="badge">sem desejos</span>');
@@ -165,9 +181,11 @@
       a.className = 'btn wa small';
       a.target = '_blank';
       a.href = waLink(p.phone, state.status === 'open' ? inviteText(p) : drawnText(p));
-      const wasSent = state.status === 'open' && sent.has(p.id);
-      a.textContent = state.status === 'open' ? (wasSent ? 'Reenviar convite' : 'Enviar convite') : 'Avisar';
-      a.onclick = () => { if (state.status === 'open') { markSent(p.id); setTimeout(renderList, 300); } };
+      const sentId = state.status + ':' + p.id;
+      const wasSent = sent.has(sentId);
+      const label = state.status === 'open' ? 'convite' : (state.wishes_enabled ? 'aviso' : 'link');
+      a.textContent = (wasSent ? 'Reenviar ' : 'Enviar ') + label;
+      a.onclick = () => { markSent(sentId); setTimeout(renderList, 300); };
       if (wasSent) row.insertAdjacentHTML('beforeend', '<span class="badge sent">enviado</span>');
       row.append(a);
     }
@@ -217,11 +235,20 @@
     } catch (e) { showError(e); await load(); }
   }
 
+  function syncSettingsForm() {
+    const wishes = $('#set-wishes').checked;
+    $('#hours-wrap').classList.toggle('hidden', !wishes);
+    $('#no-wishes-note').classList.toggle('hidden', wishes);
+  }
+
   async function saveSettings() {
     try {
       await rpc('admin_update_event', {
         p_admin_key: key, p_name: $('#set-name').value,
         p_budget: parseInt($('#set-budget').value, 10) || state.budget,
+        p_use_houses: $('#set-houses').checked,
+        p_wishes_enabled: state.status === 'setup' ? $('#set-wishes').checked : null,
+        p_draw_hours: parseInt($('#set-hours').value, 10) || state.draw_hours,
       });
       await load();
       $('#settings-saved').classList.remove('hidden');
@@ -232,8 +259,8 @@
   async function add() {
     const name = $('#p-name').value.trim();
     const house = $('#p-house').value.trim();
-    if (!name || !house) return showError(new Error('Escreve o nome e a casa.'));
-    await save(null, { name, phone: $('#p-phone').value, house });
+    if (!name || (state.use_houses && !house)) return showError(new Error(state.use_houses ? 'Escreve o nome e a casa.' : 'Escreve o nome.'));
+    await save(null, { name, phone: $('#p-phone').value, house: state.use_houses ? house : '' });
     $('#p-name').value = '';
     $('#p-phone').value = '';
     $('#p-name').focus();
@@ -244,9 +271,10 @@
     try {
       for (const line of lines) {
         const idx = line.indexOf(':');
-        if (idx < 0) throw new Error('Linha sem ":" → ' + line);
-        const house = line.slice(0, idx).trim();
-        const names = line.slice(idx + 1).split(',').map((n) => n.trim()).filter(Boolean);
+        if (state.use_houses && idx < 0) throw new Error('Falta a casa nesta linha (ex.: "Casa 1: Maria, José") → ' + line);
+        const house = state.use_houses ? line.slice(0, idx).trim() : '';
+        const names = (state.use_houses ? line.slice(idx + 1) : line.slice(idx + 1))
+          .split(',').map((n) => n.trim()).filter(Boolean);
         for (const name of names) {
           await rpc('admin_save_participant', { p_admin_key: key, p_id: null, p_name: name, p_phone: '', p_house: house });
         }
@@ -263,7 +291,10 @@
   }
 
   async function start() {
-    if (!confirm('Começar agora? A contagem de 72 horas começa já e depois envias os convites.')) return;
+    const msg = state.wishes_enabled
+      ? `Começar agora? A contagem de ${state.draw_hours} horas começa já e depois envias os convites.`
+      : 'Começar agora? O sorteio é feito já e depois envias a cada pessoa o seu link.';
+    if (!confirm(msg)) return;
     try { await rpc('admin_start', { p_admin_key: key }); await load(); }
     catch (e) { showError(e); }
   }
@@ -282,6 +313,7 @@
   } else {
     $('#add-btn').onclick = add;
     $('#settings-btn').onclick = saveSettings;
+    $('#set-wishes').onchange = syncSettingsForm;
     $('#import-btn').onclick = importList;
     load();
     setInterval(() => { if (document.visibilityState === 'visible' && !document.activeElement.matches('input, textarea')) load(); }, 30000);

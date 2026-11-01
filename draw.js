@@ -74,7 +74,7 @@
     }
   }
 
-  async function play(stage, { me, others, receiver }) {
+  async function play(stage, { me, others, receiver, useHouses = true }) {
     skipping = false;
     // Limpa uma execução anterior.
     stage.querySelectorAll('.ball, .ball-half, .confetti').forEach((el) => el.remove());
@@ -117,9 +117,11 @@
     const excluded = balls.filter((b) => b.person.excluded);
     stage.querySelector('#tray-wrap').classList.add('on');
     const meChip = makeChip(tray, 'Tu, ' + me.name.split(' ')[0]);
-    await setCaption(stage, excluded.length
-      ? `Primeiro saem as pessoas da tua casa (${me.house}).`
-      : `Na tua casa (${me.house}) não há mais ninguém, só tu.`);
+    await setCaption(stage, !useHouses
+      ? 'Só tu não te podes calhar. Todos os outros estão em jogo!'
+      : excluded.length
+        ? `Primeiro saem as pessoas da tua casa (${me.house}).`
+        : `Na tua casa (${me.house}) não há mais ninguém, só tu.`);
     meChip.classList.add('on');
     await sleep(600);
     for (const b of excluded) {

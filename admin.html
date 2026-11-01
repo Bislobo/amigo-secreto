@@ -38,6 +38,14 @@
       <input id="set-name" maxlength="80">
       <label for="set-budget">Budget máximo por presente (€)</label>
       <input id="set-budget" type="number" min="1">
+      <label class="check"><input id="set-houses" type="checkbox"> Há casas: pessoas da mesma casa não se podem tirar umas às outras</label>
+      <label class="check"><input id="set-wishes" type="checkbox"> Cada pessoa escolhe 3 desejos antes do sorteio</label>
+      <p id="wishes-locked" class="quiet hidden">Os desejos só podem ser ligados ou desligados antes de começar.</p>
+      <div id="hours-wrap">
+        <label for="set-hours">Horas até ao sorteio automático (contadas a partir de "Começar")</label>
+        <input id="set-hours" type="number" min="1" max="1440">
+      </div>
+      <p id="no-wishes-note" class="quiet hidden">Sem desejos, o sorteio é feito logo ao carregar em Começar.</p>
       <p class="row"><button id="settings-btn">Guardar</button><span id="settings-saved" class="badge ok hidden">✓ guardado</span></p>
     </details>
 
@@ -50,14 +58,17 @@
         <input id="p-name" placeholder="Ex.: Maria">
         <label for="p-phone">WhatsApp</label>
         <input id="p-phone" inputmode="tel" placeholder="Ex.: 912 345 678">
-        <label for="p-house">Casa</label>
-        <input id="p-house" list="houses" placeholder="Ex.: Casa 1">
+        <div id="p-house-wrap">
+          <label for="p-house">Casa</label>
+          <input id="p-house" list="houses" placeholder="Ex.: Casa 1">
+        </div>
         <datalist id="houses"></datalist>
         <p><button id="add-btn">Adicionar</button></p>
       </div>
       <details class="card">
-        <summary>Importar uma lista de casas de uma vez</summary>
-        <p class="quiet">Uma casa por linha, no formato <code>Casa 1: Maria, José, Rita</code>. Depois preenches os números de WhatsApp na lista.</p>
+        <summary>Importar uma lista de pessoas de uma vez</summary>
+        <p class="quiet" id="import-help-houses">Uma casa por linha, no formato <code>Casa 1: Maria, José, Rita</code>. Depois preenches os números de WhatsApp na lista.</p>
+        <p class="quiet hidden" id="import-help-plain">Nomes separados por vírgulas ou um por linha, ex.: <code>Maria, José, Rita</code>. Depois preenches os números de WhatsApp na lista.</p>
         <textarea id="import-text"></textarea>
         <p><button id="import-btn" class="secondary">Importar</button></p>
       </details>

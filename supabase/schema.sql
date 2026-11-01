@@ -34,6 +34,12 @@ create table if not exists public.participants (
 
 create index if not exists participants_event_idx on public.participants(event_id);
 
+-- Opções de cada amigo secreto.
+alter table public.events add column if not exists use_houses     boolean not null default true; -- false: todos podem calhar a todos
+alter table public.events add column if not exists wishes_enabled boolean not null default true; -- false: sem desejos, sorteio logo ao começar
+alter table public.events add column if not exists draw_hours     integer not null default 72;   -- horas até ao sorteio automático
+alter table public.participants alter column house set default '';
+
 alter table public.events       enable row level security;
 alter table public.participants enable row level security;
 revoke all on public.events, public.participants from anon, authenticated;
@@ -41,6 +47,13 @@ revoke all on public.events, public.participants from anon, authenticated;
 -- ---------------------------------------------------------------------------
 -- Funções internas (não acessíveis pela chave pública)
 -- ---------------------------------------------------------------------------
+
+-- Grupo de cada pessoa para a regra das casas. Sem casas (ou casa vazia),
+-- cada pessoa é o seu próprio grupo, por isso só não se pode tirar a si própria.
+create or replace function public._group_of(p_use_houses boolean, p_house text, p_id uuid)
+returns text language sql immutable as $$
+  select case when p_use_houses and coalesce(p_house, '') <> '' then 'h:' || p_house else 'p:' || p_id::text end
+$$;
 
 -- Verifica se é possível sortear: ninguém pode tirar alguém da mesma casa,
 -- o que só é possível se nenhuma casa tiver mais de metade das pessoas.
@@ -55,9 +68,10 @@ begin
   if v_total < 2 then
     return 'São precisas pelo menos 2 pessoas.';
   end if;
-  select house, count(*) into v_house, v_max
-    from participants where event_id = p_event
-    group by house order by count(*) desc limit 1;
+  select min(p.house), count(*) into v_house, v_max
+    from participants p join events e on e.id = p.event_id
+    where p.event_id = p_event
+    group by _group_of(e.use_houses, p.house, p.id) order by count(*) desc limit 1;
   if v_max * 2 > v_total then
     return format('A casa "%s" tem %s de %s pessoas: assim não há sorteio possível.', v_house, v_max, v_total);
   end if;
@@ -86,9 +100,10 @@ begin
     return false;
   end if;
 
-  select array_agg(id order by id), array_agg(house order by id)
+  select array_agg(p.id order by p.id), array_agg(_group_of(e.use_houses, p.house, p.id) order by p.id)
     into v_ids, v_houses
-    from participants where event_id = p_event;
+    from participants p join events e on e.id = p.event_id
+    where p.event_id = p_event;
   v_n := array_length(v_ids, 1);
 
   for attempt in 1..20000 loop
@@ -124,7 +139,7 @@ begin
   end if;
   select count(*) into v_missing from participants
     where event_id = p_event and wishes_at is null;
-  if now() >= v_event.deadline or v_missing = 0 then
+  if not v_event.wishes_enabled or now() >= v_event.deadline or v_missing = 0 then
     perform _do_draw(p_event);
   end if;
 end $$;
@@ -181,6 +196,9 @@ begin
   return json_build_object(
     'name', v_event.name,
     'budget', v_event.budget,
+    'use_houses', v_event.use_houses,
+    'wishes_enabled', v_event.wishes_enabled,
+    'draw_hours', v_event.draw_hours,
     'status', v_event.status,
     'deadline', v_event.deadline,
     'drawn_at', v_event.drawn_at,
@@ -204,15 +222,18 @@ begin
   if v_event.status = 'drawn' then
     raise exception 'O sorteio já foi feito.';
   end if;
-  if coalesce(trim(p_name), '') = '' or coalesce(trim(p_house), '') = '' then
-    raise exception 'Nome e casa são obrigatórios.';
+  if coalesce(trim(p_name), '') = '' then
+    raise exception 'O nome é obrigatório.';
+  end if;
+  if v_event.use_houses and coalesce(trim(p_house), '') = '' then
+    raise exception 'Indica a casa de %.', trim(p_name);
   end if;
   if p_id is null then
     insert into participants(event_id, name, phone, house)
-      values (v_event.id, left(trim(p_name), 60), left(coalesce(trim(p_phone), ''), 30), left(trim(p_house), 40));
+      values (v_event.id, left(trim(p_name), 60), left(coalesce(trim(p_phone), ''), 30), left(coalesce(trim(p_house), ''), 40));
   else
     update participants
-       set name = left(trim(p_name), 60), phone = left(coalesce(trim(p_phone), ''), 30), house = left(trim(p_house), 40)
+       set name = left(trim(p_name), 60), phone = left(coalesce(trim(p_phone), ''), 30), house = left(coalesce(trim(p_house), ''), 40)
      where id = p_id and event_id = v_event.id;
   end if;
 end $$;
@@ -229,11 +250,16 @@ begin
   delete from participants where id = p_id and event_id = v_event.id;
 end $$;
 
--- Muda o nome e o budget. O budget só pode mudar antes do sorteio.
-create or replace function public.admin_update_event(p_admin_key uuid, p_name text, p_budget integer)
+-- Muda as definições. As opções de casas, desejos e budget só mudam antes do sorteio;
+-- os desejos só podem ser ligados/desligados antes de começar.
+drop function if exists public.admin_update_event(uuid, text, integer);
+create or replace function public.admin_update_event(
+  p_admin_key uuid, p_name text, p_budget integer,
+  p_use_houses boolean default null, p_wishes_enabled boolean default null, p_draw_hours integer default null)
 returns void language plpgsql security definer set search_path = public as $$
 declare
   v_event events;
+  v_hours int;
 begin
   v_event := _event_by_key(p_admin_key);
   if coalesce(trim(p_name), '') = '' then
@@ -242,10 +268,26 @@ begin
   if p_budget is null or p_budget < 1 then
     raise exception 'O budget tem de ser pelo menos 1 €.';
   end if;
-  if v_event.status = 'drawn' and p_budget <> v_event.budget then
-    raise exception 'O sorteio já foi feito, o budget já não pode mudar.';
+  v_hours := coalesce(p_draw_hours, v_event.draw_hours);
+  if v_hours < 1 or v_hours > 24 * 60 then
+    raise exception 'O tempo até ao sorteio tem de estar entre 1 hora e 60 dias.';
   end if;
-  update events set name = left(trim(p_name), 80), budget = p_budget where id = v_event.id;
+  if v_event.status = 'drawn' and (p_budget <> v_event.budget
+       or coalesce(p_use_houses, v_event.use_houses) <> v_event.use_houses
+       or v_hours <> v_event.draw_hours) then
+    raise exception 'O sorteio já foi feito: só o nome pode mudar.';
+  end if;
+  if v_event.status <> 'setup' and coalesce(p_wishes_enabled, v_event.wishes_enabled) <> v_event.wishes_enabled then
+    raise exception 'Os desejos só podem ser ligados ou desligados antes de começar.';
+  end if;
+  update events
+     set name = left(trim(p_name), 80), budget = p_budget,
+         use_houses = coalesce(p_use_houses, use_houses),
+         wishes_enabled = coalesce(p_wishes_enabled, wishes_enabled),
+         draw_hours = v_hours,
+         deadline = case when invites_sent_at is not null then invites_sent_at + make_interval(hours => v_hours) else deadline end
+   where id = v_event.id;
+  perform _maybe_draw(v_event.id);
 end $$;
 
 -- Abre o amigo secreto: começa a contagem de 72 horas.
@@ -264,8 +306,12 @@ begin
     raise exception '%', v_problem;
   end if;
   update events
-     set status = 'open', invites_sent_at = now(), deadline = now() + interval '72 hours'
+     set status = 'open', invites_sent_at = now(), deadline = now() + make_interval(hours => v_event.draw_hours)
    where id = v_event.id;
+  -- Sem desejos não há primeira fase: o sorteio é feito logo.
+  if not v_event.wishes_enabled then
+    perform _do_draw(v_event.id);
+  end if;
 end $$;
 
 -- Sortear já, sem esperar pelo fim do prazo.
@@ -306,7 +352,8 @@ begin
 
   return json_build_object(
     'event', json_build_object('name', v_event.name, 'budget', v_event.budget,
-                               'status', v_event.status, 'deadline', v_event.deadline),
+                               'status', v_event.status, 'deadline', v_event.deadline,
+                               'use_houses', v_event.use_houses, 'wishes_enabled', v_event.wishes_enabled),
     'me', json_build_object('name', v_me.name, 'phone', v_me.phone, 'house', v_me.house,
                             'wishes', json_build_array(v_me.wish1, v_me.wish2, v_me.wish3),
                             'has_wishes', v_me.wishes_at is not null),
@@ -316,7 +363,8 @@ begin
                   'has_wishes', v_rec.wishes_at is not null) end,
     -- Para a animação: os outros nomes e quem é da mesma casa (excluído).
     'others', case when v_event.status = 'drawn' then coalesce((
-                select json_agg(json_build_object('name', name, 'excluded', house = v_me.house)
+                select json_agg(json_build_object('name', name,
+                                  'excluded', _group_of(v_event.use_houses, house, id) = _group_of(v_event.use_houses, v_me.house, v_me.id))
                                 order by random())
                 from participants where event_id = v_me.event_id and id <> v_me.id), '[]'::json)
               else null end
@@ -334,6 +382,9 @@ begin
     raise exception 'Link inválido.';
   end if;
   select status into v_status from events where id = v_me.event_id;
+  if not (select wishes_enabled from events where id = v_me.event_id) then
+    raise exception 'Este amigo secreto não tem desejos.';
+  end if;
   if v_status = 'drawn' then
     raise exception 'O sorteio já foi feito, já não é possível mudar os desejos.';
   end if;
@@ -356,7 +407,7 @@ grant execute on function public.create_event(text, integer)                    
 grant execute on function public.admin_get(uuid)                                     to anon, authenticated;
 grant execute on function public.admin_save_participant(uuid, uuid, text, text, text) to anon, authenticated;
 grant execute on function public.admin_remove_participant(uuid, uuid)                to anon, authenticated;
-grant execute on function public.admin_update_event(uuid, text, integer)             to anon, authenticated;
+grant execute on function public.admin_update_event(uuid, text, integer, boolean, boolean, integer) to anon, authenticated;
 grant execute on function public.admin_start(uuid)                                   to anon, authenticated;
 grant execute on function public.admin_draw_now(uuid)                                to anon, authenticated;
 grant execute on function public.get_me(uuid)                                        to anon, authenticated;

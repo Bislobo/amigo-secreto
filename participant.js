@@ -19,11 +19,12 @@
       ['Bruno', 0], ['Joana', 0]];
     return {
       event: { name: 'Amigo Secreto de Natal 2026 (demonstração)', budget: 60,
+        use_houses: params.get('casas') !== '0', wishes_enabled: params.get('desejos') !== '0',
         status: demo === 'form' ? 'open' : 'drawn', deadline: new Date(Date.now() + 72 * 3600e3).toISOString() },
       me: { name: 'Miguel', phone: '', house: 'Casa 2', wishes: [null, null, null], has_wishes: false },
       receiver: { name: 'Sofia', has_wishes: true,
         wishes: ['Um livro de receitas', 'Uma manta para o sofá', 'Bombons de chocolate preto'] },
-      others: names.map(([name, ex]) => ({ name, excluded: !!ex })),
+      others: names.map(([name, ex]) => ({ name, excluded: !!ex && params.get('casas') !== '0' })),
     };
   }
 
@@ -32,13 +33,17 @@
     const wishes = r.has_wishes
       ? r.wishes.map((w, i) => `${i + 1}. ${w}`).join('\n')
       : '(não escolheu desejos)';
-    return `🎁 ${data.event.name}\n\nO meu amigo secreto é: *${r.name}*\n\nDesejos:\n${wishes}\n\n` +
+    return `🎁 ${data.event.name}\n\nO meu amigo secreto é: *${r.name}*\n\n` +
+      (data.event.wishes_enabled ? `Desejos:\n${wishes}\n\n` : '') +
       `Budget máximo: ${data.event.budget} €`;
   }
 
   function renderResult() {
     const r = data.receiver;
     $('#result-name').textContent = r.name;
+    const showWishes = data.event.wishes_enabled !== false;
+    $('#result-wishes-title').classList.toggle('hidden', !showWishes);
+    $('#result-wishes').classList.toggle('hidden', !showWishes);
     $('#result-wishes').innerHTML = r.has_wishes
       ? r.wishes.map((w) => `<li>${esc(w)}</li>`).join('')
       : '<li class="quiet">Não escolheu desejos a tempo. Vais ter de ser criativo!</li>';
@@ -56,6 +61,7 @@
     $('#stage').scrollIntoView({ behavior: 'smooth', block: 'start' });
     await window.Draw.play($('#stage'), {
       me: data.me, others: data.others, receiver: data.receiver,
+      useHouses: data.event.use_houses !== false,
     });
     renderResult();
     $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -68,6 +74,11 @@
     if (data.event.status === 'drawn' && data.receiver) {
       $('#ready-hello').textContent = `Olá, ${first}!`;
       show('ready', true);
+      return;
+    }
+    if (data.event.wishes_enabled === false) {
+      $('#waiting-hello').textContent = `Olá, ${first}!`;
+      show('waiting', true);
       return;
     }
     $('#hello').textContent = `Olá, ${first}!`;

@@ -45,6 +45,17 @@ No repositório: **Settings → Pages → Build and deployment → Source: Deplo
 4. Carrega em **Enviar convite** em cada pessoa: o WhatsApp abre com a mensagem pronta, só tens de carregar em Enviar.
 5. Quando o sorteio estiver feito, carrega em **Avisar o grupo da família** (ou em **Avisar** em cada pessoa).
 
+## Definições
+
+Na página do organizador, em **Definições do amigo secreto**, podes mudar:
+
+- **Nome** e **budget** máximo.
+- **Há casas**: desliga para que qualquer pessoa possa calhar a qualquer outra (só ninguém se tira a si próprio).
+- **Desejos**: desliga para não haver a fase dos 3 desejos. Nesse caso o sorteio é feito logo ao carregar em **Começar** e envias a cada pessoa o seu link. Só pode mudar antes de começar.
+- **Horas até ao sorteio automático** (72 por omissão). Se mudares depois de começar, o prazo é recalculado a partir do momento em que carregaste em **Começar**.
+
+Depois de mudar o código da base de dados (`supabase/schema.sql`), basta voltar a corrê-lo no SQL Editor: os dados ficam.
+
 ## Bom saber
 
 - O temporizador das 72 h corre no Supabase (`pg_cron`, de 5 em 5 minutos). Mesmo que o agendamento não esteja ativo, o sorteio acontece assim que alguém abre a página depois do prazo.
