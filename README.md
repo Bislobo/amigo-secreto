@@ -57,6 +57,11 @@ Na página do organizador, em **Definições do amigo secreto**, podes mudar:
 
 Depois de mudar o código da base de dados (`supabase/schema.sql`), basta voltar a corrê-lo no SQL Editor: os dados ficam.
 
+## Depois do sorteio
+
+- Cada pessoa pode continuar a escrever ou mudar os seus desejos no mesmo link. Quem lhe calhou vê sempre a versão mais recente quando abre o seu link.
+- Na página do organizador há o botão **Fazer novo sorteio**: apaga os pares e sorteia outra vez (sempre com a regra das casas, e tentando que ninguém volte a tirar a mesma pessoa). Os desejos e as fotos ficam. Depois é preciso avisar toda a gente.
+
 ## Bom saber
 
 - O temporizador das 72 h corre no Supabase (`pg_cron`, de 5 em 5 minutos). Mesmo que o agendamento não esteja ativo, o sorteio acontece assim que alguém abre a página depois do prazo.

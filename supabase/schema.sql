@@ -88,6 +88,7 @@ declare
   v_status text;
   v_ids    uuid[];
   v_houses text[];
+  v_prev   uuid[];
   v_perm   int[];
   v_n      int;
   v_ok     boolean;
@@ -102,8 +103,9 @@ begin
     return false;
   end if;
 
-  select array_agg(p.id order by p.id), array_agg(_group_of(e.use_houses, p.house, p.id) order by p.id)
-    into v_ids, v_houses
+  select array_agg(p.id order by p.id), array_agg(_group_of(e.use_houses, p.house, p.id) order by p.id),
+         array_agg(p.receiver_id order by p.id)
+    into v_ids, v_houses, v_prev
     from participants p join events e on e.id = p.event_id
     where p.event_id = p_event;
   v_n := array_length(v_ids, 1);
@@ -112,7 +114,9 @@ begin
     select array_agg(g order by random()) into v_perm from generate_series(1, v_n) g;
     v_ok := true;
     for i in 1..v_n loop
-      if v_houses[i] = v_houses[v_perm[i]] then
+      -- Num novo sorteio, tenta primeiro que ninguém volte a tirar a mesma pessoa.
+      if v_houses[i] = v_houses[v_perm[i]]
+         or (attempt <= 10000 and v_prev[i] is not null and v_prev[i] = v_ids[v_perm[i]]) then
         v_ok := false;
         exit;
       end if;
@@ -321,6 +325,27 @@ begin
   end if;
 end $$;
 
+-- Novo sorteio: apaga os pares e sorteia outra vez. Os desejos e as fotos ficam.
+create or replace function public.admin_redraw(p_admin_key uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_event   events;
+  v_problem text;
+begin
+  v_event := _event_by_key(p_admin_key);
+  if v_event.status <> 'drawn' then
+    raise exception 'Ainda não houve sorteio.';
+  end if;
+  v_problem := _draw_problem(v_event.id);
+  if v_problem is not null then
+    raise exception '%', v_problem;
+  end if;
+  update events set status = 'open' where id = v_event.id;
+  if not _do_draw(v_event.id) then
+    raise exception 'Não foi possível fazer o novo sorteio.';
+  end if;
+end $$;
+
 -- Sortear já, sem esperar pelo fim do prazo.
 create or replace function public.admin_draw_now(p_admin_key uuid)
 returns void language plpgsql security definer set search_path = public as $$
@@ -396,9 +421,6 @@ begin
   if not (select wishes_enabled from events where id = v_me.event_id) then
     raise exception 'Este amigo secreto não tem desejos.';
   end if;
-  if v_status = 'drawn' then
-    raise exception 'O sorteio já foi feito, já não é possível mudar os desejos.';
-  end if;
   if coalesce(trim(p_wish1), '') = '' or coalesce(trim(p_wish2), '') = '' or coalesce(trim(p_wish3), '') = '' then
     raise exception 'Escreve as 3 coisas que gostavas de receber.';
   end if;
@@ -442,6 +464,7 @@ grant execute on function public.admin_remove_participant(uuid, uuid)           
 grant execute on function public.admin_update_event(uuid, text, integer, boolean, boolean, integer, boolean) to anon, authenticated;
 grant execute on function public.admin_set_photo(uuid, uuid, text)                     to anon, authenticated;
 grant execute on function public.admin_start(uuid)                                   to anon, authenticated;
+grant execute on function public.admin_redraw(uuid)                                 to anon, authenticated;
 grant execute on function public.admin_draw_now(uuid)                                to anon, authenticated;
 grant execute on function public.get_me(uuid)                                        to anon, authenticated;
 grant execute on function public.submit_wishes(uuid, text, text, text)               to anon, authenticated;

@@ -114,7 +114,8 @@
     } else {
       status.innerHTML = `✅ Sorteio feito a ${esc(formatDate(state.drawn_at))}. ` +
         (state.wishes_enabled ? 'Avisa cada pessoa para abrir o seu link. ' : 'Envia a cada pessoa o seu link. ') +
-        'Esta página não mostra os pares.';
+        'Esta página não mostra os pares.' +
+        (state.wishes_enabled ? ` <b>${done} de ${people.length}</b> já escolheram desejos (ainda podem escolher ou mudar).` : '');
       const group = document.createElement('a');
       group.className = 'btn wa';
       group.target = '_blank';
@@ -122,6 +123,11 @@
         `✨ O sorteio do «${state.name}» já foi feito! Abram o vosso link pessoal (o mesmo do convite) para verem quem vos calhou.`);
       group.textContent = 'Avisar o grupo no WhatsApp';
       actions.append(group);
+      const redo = document.createElement('button');
+      redo.className = 'secondary';
+      redo.textContent = 'Fazer novo sorteio';
+      redo.onclick = redraw;
+      actions.append(redo);
     }
 
     const problem = $('#problem');
@@ -198,7 +204,7 @@
       a.className = 'btn wa small';
       a.target = '_blank';
       a.href = waLink(p.phone, state.status === 'open' ? inviteText(p) : drawnText(p));
-      const sentId = state.status + ':' + p.id;
+      const sentId = state.status + ':' + (state.drawn_at || '') + ':' + p.id;
       const wasSent = sent.has(sentId);
       const label = state.status === 'open' ? 'convite' : (state.wishes_enabled ? 'aviso' : 'link');
       a.textContent = (wasSent ? 'Reenviar ' : 'Enviar ') + label;
@@ -315,6 +321,16 @@
     if (!confirm(msg)) return;
     try { await rpc('admin_start', { p_admin_key: key }); await load(); }
     catch (e) { showError(e); }
+  }
+
+  async function redraw() {
+    if (!confirm('Fazer um novo sorteio? Os pares atuais deixam de valer e cada pessoa passa a ter outro amigo secreto. ' +
+      'Os desejos e as fotos ficam. Depois tens de avisar toda a gente.')) return;
+    try {
+      await rpc('admin_redraw', { p_admin_key: key });
+      await load();
+      alert('Novo sorteio feito! Avisa as pessoas para voltarem a abrir o seu link.');
+    } catch (e) { showError(e); }
   }
 
   async function drawNow() {

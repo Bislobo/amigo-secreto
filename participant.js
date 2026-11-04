@@ -56,7 +56,7 @@
     $('#result-wishes').classList.toggle('hidden', !showWishes);
     $('#result-wishes').innerHTML = r.has_wishes
       ? r.wishes.map((w) => `<li>${esc(w)}</li>`).join('')
-      : '<li class="quiet">Não escolheu desejos a tempo. Vais ter de ser criativo!</li>';
+      : '<li class="quiet">Ainda não escolheu desejos. Volta a abrir este link mais tarde: ainda os pode escolher.</li>';
     $('#budget-2').textContent = data.event.budget + ' €';
     $('#wa-save').href = data.me.phone
       ? waLink(data.me.phone, resultText())
@@ -82,24 +82,29 @@
     show('loading', false);
     $('#event-name').textContent = data.event.name;
     const first = data.me.name.split(' ')[0];
-    if (data.event.status === 'drawn' && data.receiver) {
+    const drawn = data.event.status === 'drawn' && data.receiver;
+    if (drawn) {
       $('#ready-hello').textContent = `Olá, ${first}!`;
       show('ready', true);
-      return;
+      if (data.event.wishes_enabled === false) return;
+      // Depois do sorteio ainda se pode escrever ou mudar os desejos: o formulário vai para o fim da página.
+      document.querySelector('main').append($('#wishes'));
     }
     if (data.event.wishes_enabled === false) {
       $('#waiting-hello').textContent = `Olá, ${first}!`;
       show('waiting', true);
       return;
     }
-    $('#hello').textContent = `Olá, ${first}!`;
+    $('#hello').textContent = drawn ? 'Os teus desejos' : `Olá, ${first}!`;
     $('#budget-1').textContent = data.event.budget + ' €';
-    $('#deadline').textContent = data.event.status === 'open'
+    $('#deadline').textContent = drawn
+      ? 'O sorteio já foi feito, mas ainda podes escrever ou mudar os teus desejos. Quem te calhou vê sempre a versão mais recente.'
+      : data.event.status === 'open'
       ? `Tens até ${formatDate(data.event.deadline)}. O sorteio é feito sozinho nessa altura, ou antes se toda a gente já tiver escolhido.`
       : 'O amigo secreto ainda não começou, mas já podes escrever os teus desejos.';
     ['w1', 'w2', 'w3'].forEach((id, i) => { $('#' + id).value = data.me.wishes[i] || ''; });
     if (data.me.has_wishes) {
-      $('#saved').textContent = 'Os teus desejos estão guardados. Podes alterá-los até ao sorteio.';
+      $('#saved').textContent = 'Os teus desejos estão guardados. Podes alterá-los sempre que quiseres.';
       show('saved', true);
     }
     show('wishes', true);
@@ -112,9 +117,14 @@
     $('#save').disabled = true;
     try {
       if (!demo) await rpc('submit_wishes', { p_token: token, p_wish1: w[0], p_wish2: w[1], p_wish3: w[2] });
-      $('#saved').textContent = 'Guardado! 🎉 Podes voltar a este link para alterar até ao sorteio.';
+      $('#saved').textContent = 'Guardado! ✨ Podes voltar a este link para alterar sempre que quiseres.';
       show('saved', true);
-      if (!demo) { data = await rpc('get_me', { p_token: token }); if (data.event.status === 'drawn') { show('wishes', false); render(); } }
+      if (!demo) {
+        const wasDrawn = data.event.status === 'drawn';
+        data = await rpc('get_me', { p_token: token });
+        // Se estes desejos fecharam o sorteio, mostra logo o botão para o ver.
+        if (!wasDrawn && data.event.status === 'drawn') render();
+      }
     } catch (e) { showError(e); }
     $('#save').disabled = false;
   }
