@@ -97,7 +97,9 @@
     }
     $('#hello').textContent = drawn ? 'Os teus desejos' : `Olá, ${first}!`;
     $('#budget-1').textContent = data.event.budget + ' €';
-    $('#deadline').textContent = drawn
+    $('#deadline').textContent = data.me.pending
+      ? 'Entraste depois do sorteio principal. Já podes escrever os teus desejos: o teu amigo secreto vai ser sorteado em breve.'
+      : drawn
       ? 'O sorteio já foi feito, mas ainda podes escrever ou mudar os teus desejos. Quem te calhou vê sempre a versão mais recente.'
       : data.event.status === 'open'
       ? `Tens até ${formatDate(data.event.deadline)}. O sorteio é feito sozinho nessa altura, ou antes se toda a gente já tiver escolhido.`

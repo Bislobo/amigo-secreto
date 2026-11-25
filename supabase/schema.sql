@@ -33,6 +33,8 @@ create table if not exists public.participants (
 );
 
 create index if not exists participants_event_idx on public.participants(event_id);
+-- true: entrou depois do sorteio; é sorteado só entre os outros que entraram depois.
+alter table public.participants add column if not exists late boolean not null default false;
 
 -- Opções de cada amigo secreto.
 alter table public.events add column if not exists use_houses     boolean not null default true; -- false: todos podem calhar a todos
@@ -210,11 +212,13 @@ begin
     'deadline', v_event.deadline,
     'drawn_at', v_event.drawn_at,
     'problem', _draw_problem(v_event.id),
+    'late_problem', case when v_event.status = 'drawn' then _late_problem(v_event.id) end,
     'participants', coalesce((
       select json_agg(json_build_object(
         'id', id, 'name', name, 'phone', phone, 'house', house,
         'token', token, 'has_wishes', wishes_at is not null,
-        'photo', case when v_event.photos_enabled then photo end
+        'photo', case when v_event.photos_enabled then photo end,
+        'pending', v_event.status = 'drawn' and receiver_id is null
       ) order by house, created_at)
       from participants where event_id = v_event.id), '[]'::json)
   );
@@ -230,18 +234,22 @@ begin
   if coalesce(trim(p_name), '') = '' then
     raise exception 'O nome é obrigatório.';
   end if;
-  -- Depois do sorteio só se pode corrigir o nome e o telefone de quem já está.
-  if v_event.status = 'drawn' then
-    if p_id is null then
-      raise exception 'O sorteio já foi feito.';
-    end if;
-    update participants
-       set name = left(trim(p_name), 60), phone = left(coalesce(trim(p_phone), ''), 30)
-     where id = p_id and event_id = v_event.id;
-    return;
-  end if;
   if v_event.use_houses and coalesce(trim(p_house), '') = '' then
     raise exception 'Indica a casa de %.', trim(p_name);
+  end if;
+  -- Depois do sorteio: pode-se acrescentar pessoas novas (sorteadas depois entre si)
+  -- e corrigir o nome e o telefone; a casa só muda a quem ainda não foi sorteado.
+  if v_event.status = 'drawn' then
+    if p_id is null then
+      insert into participants(event_id, name, phone, house, late)
+        values (v_event.id, left(trim(p_name), 60), left(coalesce(trim(p_phone), ''), 30), left(coalesce(trim(p_house), ''), 40), true);
+    else
+      update participants
+         set name = left(trim(p_name), 60), phone = left(coalesce(trim(p_phone), ''), 30),
+             house = case when receiver_id is null then left(coalesce(trim(p_house), ''), 40) else house end
+       where id = p_id and event_id = v_event.id;
+    end if;
+    return;
   end if;
   if p_id is null then
     insert into participants(event_id, name, phone, house)
@@ -259,8 +267,11 @@ declare
   v_event events;
 begin
   v_event := _event_by_key(p_admin_key);
-  if v_event.status = 'drawn' then
-    raise exception 'O sorteio já foi feito.';
+  -- Depois do sorteio só se pode remover quem entrou depois e ainda não foi sorteado.
+  if v_event.status = 'drawn' and exists (
+       select 1 from participants
+        where event_id = v_event.id and (id = p_id and receiver_id is not null or receiver_id = p_id)) then
+    raise exception 'Essa pessoa já entrou no sorteio.';
   end if;
   delete from participants where id = p_id and event_id = v_event.id;
 end $$;
@@ -348,6 +359,7 @@ begin
     raise exception '%', v_problem;
   end if;
   update events set status = 'open' where id = v_event.id;
+  update participants set late = false where event_id = v_event.id;
   if not _do_draw(v_event.id) then
     raise exception 'Não foi possível fazer o novo sorteio.';
   end if;
@@ -364,6 +376,80 @@ begin
     raise exception 'O amigo secreto ainda não foi aberto ou já foi sorteado.';
   end if;
   perform _do_draw(v_event.id);
+end $$;
+
+-- Quem entrou depois do sorteio e ainda não tem a quem dar presente.
+create or replace function public._late_problem(p_event uuid)
+returns text language plpgsql security definer set search_path = public as $$
+declare
+  v_total int;
+  v_max   int;
+  v_house text;
+begin
+  select count(*) into v_total from participants
+    where event_id = p_event and late and receiver_id is null;
+  if v_total = 0 then
+    return null;
+  end if;
+  if v_total < 2 then
+    return 'Para sortear os novos são precisas pelo menos 2 pessoas novas.';
+  end if;
+  select min(p.house), count(*) into v_house, v_max
+    from participants p join events e on e.id = p.event_id
+    where p.event_id = p_event and p.late and p.receiver_id is null
+    group by _group_of(e.use_houses, p.house, p.id) order by count(*) desc limit 1;
+  if v_max * 2 > v_total then
+    return format('Dos novos, a casa "%s" tem %s de %s pessoas: assim não há sorteio possível entre eles.', v_house, v_max, v_total);
+  end if;
+  return null;
+end $$;
+
+-- Sorteia só entre as pessoas que entraram depois do sorteio (pelo menos 2).
+create or replace function public.admin_draw_late(p_admin_key uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_event   events;
+  v_problem text;
+  v_ids     uuid[];
+  v_houses  text[];
+  v_perm    int[];
+  v_n       int;
+  v_ok      boolean;
+  i         int;
+begin
+  v_event := _event_by_key(p_admin_key);
+  perform 1 from events where id = v_event.id for update;
+  if v_event.status <> 'drawn' then
+    raise exception 'Ainda não houve sorteio.';
+  end if;
+  if not exists (select 1 from participants where event_id = v_event.id and late and receiver_id is null) then
+    raise exception 'Não há pessoas novas para sortear.';
+  end if;
+  v_problem := _late_problem(v_event.id);
+  if v_problem is not null then
+    raise exception '%', v_problem;
+  end if;
+  select array_agg(p.id order by p.id), array_agg(_group_of(v_event.use_houses, p.house, p.id) order by p.id)
+    into v_ids, v_houses
+    from participants p where p.event_id = v_event.id and p.late and p.receiver_id is null;
+  v_n := array_length(v_ids, 1);
+  for attempt in 1..20000 loop
+    select array_agg(g order by random()) into v_perm from generate_series(1, v_n) g;
+    v_ok := true;
+    for i in 1..v_n loop
+      if v_houses[i] = v_houses[v_perm[i]] then
+        v_ok := false;
+        exit;
+      end if;
+    end loop;
+    if v_ok then
+      for i in 1..v_n loop
+        update participants set receiver_id = v_ids[v_perm[i]] where id = v_ids[i];
+      end loop;
+      return;
+    end if;
+  end loop;
+  raise exception 'Não foi possível encontrar um sorteio válido.';
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -397,7 +483,8 @@ begin
     'me', json_build_object('name', v_me.name, 'phone', v_me.phone, 'house', v_me.house,
                             'photo', case when v_event.photos_enabled then v_me.photo end,
                             'wishes', json_build_array(v_me.wish1, v_me.wish2, v_me.wish3),
-                            'has_wishes', v_me.wishes_at is not null),
+                            'has_wishes', v_me.wishes_at is not null,
+                            'pending', v_event.status = 'drawn' and v_me.receiver_id is null),
     'receiver', case when v_rec.id is null then null else json_build_object(
                   'name', v_rec.name,
                   'photo', case when v_event.photos_enabled then v_rec.photo end,
@@ -409,7 +496,8 @@ begin
                                   'photo', case when v_event.photos_enabled then photo end,
                                   'excluded', _group_of(v_event.use_houses, house, id) = _group_of(v_event.use_houses, v_me.house, v_me.id))
                                 order by random())
-                from participants where event_id = v_me.event_id and id <> v_me.id), '[]'::json)
+                -- Quem entrou depois só pode calhar a quem também entrou depois (e vice-versa).
+                from participants where event_id = v_me.event_id and id <> v_me.id and late = v_me.late), '[]'::json)
               else null end
   );
 end $$;
@@ -472,6 +560,7 @@ grant execute on function public.admin_update_event(uuid, text, integer, boolean
 grant execute on function public.admin_set_photo(uuid, uuid, text)                     to anon, authenticated;
 grant execute on function public.admin_start(uuid)                                   to anon, authenticated;
 grant execute on function public.admin_redraw(uuid)                                 to anon, authenticated;
+grant execute on function public.admin_draw_late(uuid)                               to anon, authenticated;
 grant execute on function public.admin_draw_now(uuid)                                to anon, authenticated;
 grant execute on function public.get_me(uuid)                                        to anon, authenticated;
 grant execute on function public.submit_wishes(uuid, text, text, text)               to anon, authenticated;

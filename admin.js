@@ -30,6 +30,14 @@
       `O budget máximo é de ${state.budget} €. Não partilhes este link, é só teu.`;
   }
 
+  // Para quem entrou depois do sorteio: escolhe já os desejos, o par vem depois.
+  function lateInviteText(p) {
+    return `Olá ${p.name}! ✨ ${state.name}\n\n` +
+      (state.wishes_enabled ? `Abre o teu link pessoal e escolhe 3 coisas que gostavas de receber:` : `Este é o teu link pessoal:`) +
+      `\n${personLink(p)}\n\nO teu amigo secreto vai ser sorteado em breve. ` +
+      `O budget máximo é de ${state.budget} €. Não partilhes este link, é só teu.`;
+  }
+
   function drawnText(p) {
     return `Olá ${p.name}! ✨ O sorteio do «${state.name}» já foi feito.\n\n` +
       `Abre o teu link para veres quem te calhou:\n${personLink(p)}`;
@@ -128,12 +136,23 @@
       redo.textContent = 'Fazer novo sorteio';
       redo.onclick = redraw;
       actions.append(redo);
+      const late = people.filter((p) => p.pending);
+      if (late.length) {
+        status.insertAdjacentHTML('beforeend', `<br><br>🆕 <b>${late.length}</b> ${late.length === 1 ? 'pessoa nova à espera' : 'pessoas novas à espera'} de sorteio. ` +
+          'São sorteadas só entre si (não mexe nos pares que já existem).');
+        const nb = document.createElement('button');
+        nb.textContent = `Sortear os novos (${late.length})`;
+        nb.disabled = !!state.late_problem;
+        nb.onclick = drawLate;
+        actions.prepend(nb);
+      }
     }
 
     const problem = $('#problem');
-    problem.textContent = state.problem || '';
-    problem.classList.toggle('hidden', !state.problem || state.status === 'drawn');
-    $('#setup-tools').classList.toggle('hidden', state.status === 'drawn');
+    const shownProblem = state.status === 'drawn' ? state.late_problem : state.problem;
+    problem.textContent = shownProblem || '';
+    problem.classList.toggle('hidden', !shownProblem);
+    $('#add-title').textContent = state.status === 'drawn' ? 'Adicionar pessoas novas (depois do sorteio)' : 'Adicionar pessoas';
 
   }
 
@@ -183,7 +202,7 @@
     phone.onchange = () => savePhone(p, phone.value, row);
     row.append(phone);
 
-    if (state.status !== 'drawn') {
+    if (state.status !== 'drawn' || p.pending) {
       if (state.use_houses) {
       const house = document.createElement('input');
       house.value = p.house;
@@ -206,21 +225,23 @@
         : '<span class="badge">sem desejos</span>');
     }
 
+    if (p.pending) row.insertAdjacentHTML('beforeend', '<span class="badge">🆕 à espera de sorteio</span>');
+
     if (state.status === 'open' || state.status === 'drawn') {
       const a = document.createElement('a');
       a.className = 'btn wa small';
       a.target = '_blank';
-      a.href = waLink(p.phone, state.status === 'open' ? inviteText(p) : drawnText(p));
-      const sentId = state.status + ':' + (state.drawn_at || '') + ':' + p.id;
+      a.href = waLink(p.phone, messageFor(p));
+      const sentId = (p.pending ? 'late' : state.status) + ':' + (state.drawn_at || '') + ':' + p.id;
       const wasSent = sent.has(sentId);
-      const label = state.status === 'open' ? 'convite' : (state.wishes_enabled ? 'aviso' : 'link');
+      const label = state.status === 'open' || p.pending ? 'convite' : (state.wishes_enabled ? 'aviso' : 'link');
       a.textContent = (wasSent ? 'Reenviar ' : 'Enviar ') + label;
       a.onclick = () => { markSent(sentId); setTimeout(renderList, 300); };
       if (wasSent) row.insertAdjacentHTML('beforeend', '<span class="badge sent">enviado</span>');
       row.append(a);
     }
 
-    if (state.status !== 'drawn') {
+    if (state.status !== 'drawn' || p.pending) {
       const del = document.createElement('button');
       del.className = 'danger small';
       del.textContent = '✕';
@@ -267,7 +288,12 @@
   // Atualiza o link do WhatsApp da linha com o nome/número novos.
   function refreshLink(p, row) {
     const a = row && row.querySelector('a.btn.wa');
-    if (a) a.href = waLink(p.phone, state.status === 'open' ? inviteText(p) : drawnText(p));
+    if (a) a.href = waLink(p.phone, messageFor(p));
+  }
+
+  function messageFor(p) {
+    if (state.status === 'open') return inviteText(p);
+    return p.pending ? lateInviteText(p) : drawnText(p);
   }
 
   // Mudar de casa mantém o link e os desejos da pessoa.
@@ -354,6 +380,17 @@
       await rpc('admin_redraw', { p_admin_key: key });
       await load();
       alert('Novo sorteio feito! Avisa as pessoas para voltarem a abrir o seu link.');
+    } catch (e) { showError(e); }
+  }
+
+  async function drawLate() {
+    const late = state.participants.filter((p) => p.pending);
+    if (!confirm(`Sortear entre as ${late.length} pessoas novas? Cada uma fica com outra pessoa nova. ` +
+      'Os pares que já existem não mudam.')) return;
+    try {
+      await rpc('admin_draw_late', { p_admin_key: key });
+      await load();
+      alert('Feito! Agora envia o aviso a cada pessoa nova.');
     } catch (e) { showError(e); }
   }
 
