@@ -167,16 +167,23 @@
       btn.onclick = () => { photoTarget = p; $('#admin-photo-input').click(); };
       row.append(btn);
     }
-    row.insertAdjacentHTML('beforeend', `<span class="name">${esc(p.name)}</span>`);
+    const name = document.createElement('input');
+    name.value = p.name;
+    name.placeholder = 'Nome';
+    name.title = 'Mudar o nome';
+    name.className = 'name-input';
+    name.onchange = () => saveName(p, name, row);
+    row.append(name);
+
+    const phone = document.createElement('input');
+    phone.value = p.phone;
+    phone.placeholder = 'WhatsApp';
+    phone.inputMode = 'tel';
+    phone.className = 'phone-input';
+    phone.onchange = () => savePhone(p, phone.value, row);
+    row.append(phone);
 
     if (state.status !== 'drawn') {
-      const phone = document.createElement('input');
-      phone.value = p.phone;
-      phone.placeholder = 'WhatsApp';
-      phone.inputMode = 'tel';
-      phone.onchange = () => savePhone(p, phone.value);
-      row.append(phone);
-
       if (state.use_houses) {
       const house = document.createElement('input');
       house.value = p.house;
@@ -234,8 +241,18 @@
     } catch (e) { showError(e); }
   }
 
+  // Guarda o nome sem redesenhar a lista, para não perder o sítio onde se está a escrever.
+  async function saveName(p, input, row) {
+    const name = input.value.trim();
+    if (!name) { input.value = p.name; return; }
+    try {
+      await rpc('admin_save_participant', { p_admin_key: key, p_id: p.id, p_name: name, p_phone: p.phone, p_house: p.house });
+      p.name = name; showError(null); refreshLink(p, row);
+    } catch (e) { input.value = p.name; showError(e); }
+  }
+
   // Guarda o número sem redesenhar a lista, para não perder o sítio onde se está a escrever.
-  async function savePhone(p, phone) {
+  async function savePhone(p, phone, row) {
     try {
       await rpc('admin_save_participant', {
         p_admin_key: key, p_id: p.id, p_name: p.name, p_phone: phone, p_house: p.house,
@@ -243,7 +260,14 @@
       p.phone = phone.trim();
       showError(null);
       if (state.status === 'setup') renderHeader();
+      refreshLink(p, row);
     } catch (e) { showError(e); }
+  }
+
+  // Atualiza o link do WhatsApp da linha com o nome/número novos.
+  function refreshLink(p, row) {
+    const a = row && row.querySelector('a.btn.wa');
+    if (a) a.href = waLink(p.phone, state.status === 'open' ? inviteText(p) : drawnText(p));
   }
 
   // Mudar de casa mantém o link e os desejos da pessoa.

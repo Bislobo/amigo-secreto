@@ -227,11 +227,18 @@ declare
   v_event events;
 begin
   v_event := _event_by_key(p_admin_key);
-  if v_event.status = 'drawn' then
-    raise exception 'O sorteio já foi feito.';
-  end if;
   if coalesce(trim(p_name), '') = '' then
     raise exception 'O nome é obrigatório.';
+  end if;
+  -- Depois do sorteio só se pode corrigir o nome e o telefone de quem já está.
+  if v_event.status = 'drawn' then
+    if p_id is null then
+      raise exception 'O sorteio já foi feito.';
+    end if;
+    update participants
+       set name = left(trim(p_name), 60), phone = left(coalesce(trim(p_phone), ''), 30)
+     where id = p_id and event_id = v_event.id;
+    return;
   end if;
   if v_event.use_houses and coalesce(trim(p_house), '') = '' then
     raise exception 'Indica a casa de %.', trim(p_name);
